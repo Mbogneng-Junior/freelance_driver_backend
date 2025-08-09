@@ -31,6 +31,13 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>2.25.30</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -78,6 +85,22 @@
             <artifactId>firebase-admin</artifactId>
             <version>9.2.0</version> <!-- Version stable et populaire -->
         </dependency>
+
+              
+              
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <!-- Pas besoin de <version> ici, Maven la connaît grâce au BOM ! -->
+        </dependency>
+
+        <dependency>
+        <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.2</version> <!-- Une version récente et stable -->
+        </dependency>
+
+    
 
     
 

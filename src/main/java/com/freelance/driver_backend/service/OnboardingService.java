@@ -114,24 +114,29 @@ public class OnboardingService {
                 String m2mBearerToken = "Bearer " + m2mTokenResponse.getAccessToken();
     
                 return authService.registerUser(registrationRequest, m2mBearerToken)
-                    /*
+
+                
+                    
                     // ==============================================================================
                     //          SECTION DE CRÉATION DU COMPTE CHAT (MISE EN COMMENTAIRE)
                     // ==============================================================================
-                    .doOnSuccess(createdUser -> {
+                    /* .doOnSuccess(createdUser -> {
                         log.info("Étape 1.5/5: Déclenchement de la création du compte chat (actuellement désactivé).");
-                        // ChatUserCreationPayload chatPayload = ChatUserCreationPayload.builder()
-                        //     .externalId(createdUser.getPhoneNumber())
-                        //     .displayName(firstName + " " + lastName)
-                        //     .email(email).phoneNumber(phoneNumber).login(email).secret(password)
-                        //     .build();
+                         ChatUserCreationPayload chatPayload = ChatUserCreationPayload.builder()
+                             .externalId(createdUser.getPhoneNumber())
+                             .displayName(firstName + " " + lastName)
+                            .email(email).phoneNumber(phoneNumber).login(email).secret(password)
+                             .build();
                         
-                        // chatService.registerAndLoginChatUser(chatPayload)
-                        //     .doOnSuccess(chatLogin -> log.info("Compte chat pour {} créé et connecté avec succès.", email))
-                        //     .doOnError(e -> log.error("Échec de la création du compte chat pour {}.", email, e))
-                        //     .subscribe();
-                    })
-                    */
+                         chatService.registerAndLoginChatUser(chatPayload)
+                             .doOnSuccess(chatLogin -> log.info("Compte chat pour {} créé et connecté avec succès.", email))
+                             .doOnError(e -> log.error("Échec de la création du compte chat pour {}.", email, e))
+                             .subscribe();
+                    })*/
+
+
+
+                    
                     .flatMap(createdUser -> {
                         log.info("Étape 1/5: Utilisateur {} créé avec succès (ID: {}).", createdUser.getEmail(), createdUser.getId());
                         LoginRequest loginRequest = new LoginRequest(email, password);

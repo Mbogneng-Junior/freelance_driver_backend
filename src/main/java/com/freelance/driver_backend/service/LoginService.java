@@ -43,10 +43,10 @@ public class LoginService {
                     log.info("User {} successfully logged in. Chat login temporarily disabled.", loginResponse.getUser().getUsername());
 
                     // ==== DÉBUT CODE CHAT TEMPORAIREMENT DÉSACTIVÉ ====
-
-                    // ChatUserLoginPayload chatLoginPayload = new ChatUserLoginPayload(null, loginRequest.getUsername(), loginRequest.getPassword());
-                    // Mono<ChatUserLoginResponse> chatSessionMono = chatService.loginChatUser(chatLoginPayload);
-
+                    /* 
+                     ChatUserLoginPayload chatLoginPayload = new ChatUserLoginPayload(null, loginRequest.getUsername(), loginRequest.getPassword());
+                     Mono<ChatUserLoginResponse> chatSessionMono = chatService.loginChatUser(chatLoginPayload);
+                    */
                     // ==== FIN CODE CHAT TEMPORAIREMENT DÉSACTIVÉ ====
 
                     Mono<Object> profileMono = driverProfileRepository.findByUserId(loginResponse.getUser().getId())

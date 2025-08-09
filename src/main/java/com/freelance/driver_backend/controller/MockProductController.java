@@ -57,6 +57,10 @@ public class MockProductController {
         newProduct.setEndTime(request.getEndTime());
         newProduct.setStatus(request.getStatus());
         newProduct.setClientPhoneNumber(request.getClientPhoneNumber());
+        newProduct.setPaymentOption(request.getPaymentOption());
+        newProduct.setRegularAmount(request.getRegularAmount());
+        newProduct.setDiscountPercentage(request.getDiscountPercentage());
+        newProduct.setDiscountedAmount(request.getDiscountedAmount());
 // 
         // ==============================================================================
 
@@ -96,6 +100,10 @@ public class MockProductController {
                 existingProduct.setClientName(request.getClientName());
                 existingProduct.setStatus(request.getStatus());
                 existingProduct.setClientPhoneNumber(request.getClientPhoneNumber());
+                existingProduct.setPaymentOption(request.getPaymentOption());
+                existingProduct.setRegularAmount(request.getRegularAmount());
+                existingProduct.setDiscountPercentage(request.getDiscountPercentage());
+                existingProduct.setDiscountedAmount(request.getDiscountedAmount());
                 
                 return productRepository.save(existingProduct);
             })

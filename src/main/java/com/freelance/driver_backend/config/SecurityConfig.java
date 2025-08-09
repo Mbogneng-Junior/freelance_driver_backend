@@ -67,10 +67,21 @@ public class SecurityConfig {
             .authorizeExchange(exchanges -> exchanges.anyExchange().permitAll())
             .build();
     }
+    
     // ==============================================================================
+    @Bean
+    @Order(5) // Assurez-vous que l'ordre est correct
+    public SecurityWebFilterChain mockMediaFilterChain(ServerHttpSecurity http) {
+        return http
+            // On autorise toutes les requêtes qui commencent par /media/
+            .securityMatcher(new PathPatternParserServerWebExchangeMatcher("/media/**"))
+            .csrf(csrf -> csrf.disable())
+            .authorizeExchange(exchanges -> exchanges.anyExchange().permitAll()) // On le rend public
+            .build();
+    }
 
     @Bean
-    @Order(5) // <-- ATTENTION : Changer le numéro d'ordre de 4 à 5
+    @Order(6) // <-- ATTENTION : Changer le numéro d'ordre de 4 à 5
     public SecurityWebFilterChain securedApiFilterChain(ServerHttpSecurity http) throws Exception {
         http
             .securityMatcher(new PathPatternParserServerWebExchangeMatcher("/api/**"))
@@ -91,12 +102,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:19006", "http://localhost:8081", "http://localhost:8082", "http://10.2.2.108:8081", // Expo Go
-  "http://10.2.2.108:19006", // Expo devtools via navigateur (facultatif)
-  "http://10.2.2.108:8080"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:19006", "http://localhost:8081", "http://localhost:8082", "http://192.168.43.4:8081", // Expo Go
+  "http://192.168.43.4:19006", // Expo devtools via navigateur (facultatif)
+  "http://192.168.43.4:8080"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
+        
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration); // Appliquer à toutes les routes

@@ -64,6 +64,17 @@ public class Product {
 
     @Column("client_phone_number")
     private String clientPhoneNumber;
+    @Column("payment_option")
+    private String paymentOption; // "per_km", "fixed", etc.
+
+    @Column("regular_amount")
+    private BigDecimal regularAmount;
+
+    @Column("discount_percentage")
+    private String discountPercentage; // Gardé en String pour la simplicité (ex: "10")
+
+    @Column("discounted_amount")
+    private BigDecimal discountedAmount;
 
     public UUID getId() { return this.key != null ? this.key.getId() : null; }
     public UUID getOrganizationId() { return this.key != null ? this.key.getOrganizationId() : null; }

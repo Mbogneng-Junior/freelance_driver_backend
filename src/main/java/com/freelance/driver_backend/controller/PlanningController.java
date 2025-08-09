@@ -102,6 +102,7 @@ package com.freelance.driver_backend.controller;
 
 import com.freelance.driver_backend.dto.CreateProductRequest;
 import com.freelance.driver_backend.model.Product;
+import com.freelance.driver_backend.service.NotificationTriggerService;
 import com.freelance.driver_backend.service.ProfileService;
 import com.freelance.driver_backend.service.ResourceService;
 import com.freelance.driver_backend.util.JwtUtil;
@@ -115,6 +116,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
+import com.freelance.driver_backend.repository.ProductRepository;
 
 @RestController
 @RequestMapping("/api/planning")
@@ -124,6 +126,8 @@ public class PlanningController {
 
     private final ResourceService resourceService;
     private final ProfileService profileService;
+    private final ProductRepository productRepository;
+     private final NotificationTriggerService notificationTriggerService; // Injecter le service
 
     // L'ID de catégorie fixe pour les plannings
     private static final UUID PLANNING_CATEGORY_ID = UUID.fromString("ba75b2c0-30a8-11f0-a5b5-bb7d33c83c13");
@@ -152,28 +156,44 @@ public class PlanningController {
     @PostMapping
     public Mono<ResponseEntity<Product>> createPlanning(
             @RequestBody CreateProductRequest request,
-            @AuthenticationPrincipal Mono<Jwt> jwtMono, 
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
             @RequestHeader("Authorization") String authorizationHeader) {
-        
+
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMap(userContext -> {
                 if (userContext.getOrganisation() == null) {
                     return Mono.error(new IllegalStateException("Cannot create planning: user has no organisation."));
                 }
-                
+
                 request.setCategoryId(PLANNING_CATEGORY_ID);
                 log.info("Controller: Creating a new planning (Product) with name: {}", request.getName());
-                
+
+                // On appelle le service pour créer le produit (planning)
                 return resourceService.createProduct(
-                    userContext.getOrganisation().getOrganizationId(), 
-                    request, 
-                    authorizationHeader, 
+                    userContext.getOrganisation().getOrganizationId(),
+                    request,
+                    authorizationHeader,
                     null
                 );
             })
-            .map(createdProduct -> new ResponseEntity<>(createdProduct, HttpStatus.CREATED));
-    }
+            .flatMap(createdProduct -> {
+                // Une fois que le produit est créé avec succès, createdProduct contient ses données.
+                log.info("Planning {} créé avec succès. Déclenchement des notifications...", createdProduct.getName());
+
+                // On déclenche l'envoi des notifications.
+                // Le .subscribe() est crucial pour que l'opération s'exécute.
+                // Comme c'est une opération "fire-and-forget", nous n'attendons pas sa fin.
+                notificationTriggerService.notifyAllClientsOfNewPlanning(createdProduct)
+                    .subscribe(
+                        null, // On ne fait rien en cas de succès
+                        error -> log.error("Une erreur est survenue lors de la tentative de notification.", error) // On logue l'erreur si elle survient
+                    );
+
+                // On retourne immédiatement la réponse HTTP au conducteur, sans attendre les notifications.
+                return Mono.just(new ResponseEntity<>(createdProduct, HttpStatus.CREATED));
+            });
+        }
 
     // ==============================================================================
     //                       AJOUTEZ CES DEUX NOUVELLES MÉTHODES
@@ -239,6 +259,12 @@ public class PlanningController {
                 );
             })
             .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT)));
+    }
+    @GetMapping("/published") // On utilise une URL claire : /api/planning/published
+    public Flux<Product> getPublishedPlannings() {
+        log.info("Controller: Requête publique pour récupérer les plannings publiés.");
+        return productRepository.findByCategoryId(PLANNING_CATEGORY_ID)
+                .filter(product -> "Published".equalsIgnoreCase(product.getStatus()));
     }
     // ==============================================================================
 }

@@ -15,8 +15,6 @@ import java.util.UUID;
 @Slf4j
 public class ResourceServiceExternalImpl implements ResourceService {
     
-    // On injectera le WebClient externe ici plus tard.
-    
     @Override
     public Mono<Product> createProduct(UUID organizationId, CreateProductRequest request, String bearerToken, String publicKey) {
         log.error("[EXTERNAL-IMPL] createProduct - NOT IMPLEMENTED YET.");
@@ -28,4 +26,20 @@ public class ResourceServiceExternalImpl implements ResourceService {
         log.error("[EXTERNAL-IMPL] getProductsByCategory - NOT IMPLEMENTED YET.");
         return Flux.error(new UnsupportedOperationException("External resource service not implemented."));
     }
+
+    // ==============================================================================
+    //           AJOUTEZ LES DEUX MÉTHODES MANQUANTES CI-DESSOUS
+    // ==============================================================================
+    @Override
+    public Mono<Product> updateProduct(UUID organizationId, UUID productId, CreateProductRequest request, String bearerToken, String publicKey) {
+        log.error("[EXTERNAL-IMPL] updateProduct - NOT IMPLEMENTED YET.");
+        return Mono.error(new UnsupportedOperationException("External resource service not implemented."));
+    }
+
+    @Override
+    public Mono<Void> deleteProduct(UUID organizationId, UUID productId, String bearerToken, String publicKey) {
+        log.error("[EXTERNAL-IMPL] deleteProduct - NOT IMPLEMENTED YET.");
+        return Mono.error(new UnsupportedOperationException("External resource service not implemented."));
+    }
+    // ==============================================================================
 }

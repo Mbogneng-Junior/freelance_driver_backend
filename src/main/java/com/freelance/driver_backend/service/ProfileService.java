@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 @Service
 @Slf4j
@@ -69,4 +71,101 @@ public class ProfileService {
                 .organisation(orgDto)
                 .build());
     }
+
+    public Mono<DriverProfile> updateDriverProfile(UUID userId, DriverProfile updatedData) {
+        return driverProfileRepository.findByUserId(userId)
+            .flatMap(existingProfile -> {
+                if (updatedData.getFirstName() != null) existingProfile.setFirstName(updatedData.getFirstName());
+                if (updatedData.getLastName() != null) existingProfile.setLastName(updatedData.getLastName());
+                if (updatedData.getNickname() != null) existingProfile.setNickname(updatedData.getNickname());
+                if (updatedData.getBirthDate() != null) existingProfile.setBirthDate(updatedData.getBirthDate());
+                if (updatedData.getPhoneNumber() != null) existingProfile.setPhoneNumber(updatedData.getPhoneNumber());
+                if (updatedData.getNationality() != null) existingProfile.setNationality(updatedData.getNationality());
+                if (updatedData.getGender() != null) existingProfile.setGender(updatedData.getGender());
+                if (updatedData.getLanguage() != null) existingProfile.setLanguage(updatedData.getLanguage());
+                if (updatedData.getBiography() != null) existingProfile.setBiography(updatedData.getBiography());
+                if (updatedData.getVehicleDetails() != null) existingProfile.setVehicleDetails(updatedData.getVehicleDetails());
+                
+                return driverProfileRepository.save(existingProfile);
+            });
+    }
+    
+
+    public Mono<ClientProfile> updateClientProfile(UUID userId, ClientProfile updatedData) {
+        return clientProfileRepository.findByUserId(userId)
+            .flatMap(existingProfile -> {
+                // Mettre à jour tous les champs pertinents
+                if (updatedData.getCompanyName() != null) existingProfile.setCompanyName(updatedData.getCompanyName());
+                if (updatedData.getFirstName() != null) existingProfile.setFirstName(updatedData.getFirstName());
+                if (updatedData.getLastName() != null) existingProfile.setLastName(updatedData.getLastName());
+                if (updatedData.getNickname() != null) existingProfile.setNickname(updatedData.getNickname());
+                if (updatedData.getContactEmail() != null) existingProfile.setContactEmail(updatedData.getContactEmail());
+                if (updatedData.getPhoneNumber() != null) existingProfile.setPhoneNumber(updatedData.getPhoneNumber());
+                if (updatedData.getBirthDate() != null) existingProfile.setBirthDate(updatedData.getBirthDate());
+                if (updatedData.getNationality() != null) existingProfile.setNationality(updatedData.getNationality());
+                if (updatedData.getGender() != null) existingProfile.setGender(updatedData.getGender());
+                if (updatedData.getLanguage() != null) existingProfile.setLanguage(updatedData.getLanguage());
+                
+                return clientProfileRepository.save(existingProfile);
+            });
+    }
+    
+    public Mono<Object> findProfileByUserId(UUID userId) {
+        return driverProfileRepository.findByUserId(userId)
+                .cast(Object.class)
+                .switchIfEmpty(Mono.defer(() -> clientProfileRepository.findByUserId(userId).cast(Object.class)));
+    }
+
+    public String getAvatarUrlFromProfile(Object profile) {
+        if (profile instanceof DriverProfile) {
+            // CORRECTION : Le nom du getter est getProfileImageUrl
+            return ((DriverProfile) profile).getProfileImageUrl();
+        } else if (profile instanceof ClientProfile) {
+            // CORRECTION : Le nom du getter est getProfileImageUrl
+            return ((ClientProfile) profile).getProfileImageUrl();
+        }
+        return null;
+    }
+
+    public Mono<Object> updateAvatarUrl(UUID userId, String newAvatarUrl) {
+        return driverProfileRepository.findByUserId(userId)
+            .flatMap(driverProfile -> {
+                // CORRECTION : Le nom du setter est setProfileImageUrl
+                driverProfile.setProfileImageUrl(newAvatarUrl);
+                return driverProfileRepository.save(driverProfile);
+            })
+            .cast(Object.class)
+            .switchIfEmpty(Mono.defer(() -> 
+                clientProfileRepository.findByUserId(userId)
+                    .flatMap(clientProfile -> {
+                        // CORRECTION : Le nom du setter est setProfileImageUrl
+                        clientProfile.setProfileImageUrl(newAvatarUrl);
+                        return clientProfileRepository.save(clientProfile);
+                    })
+            ));
+    }
+    
+    public String extractPathFromUrl(String fullUrl) {
+        try {
+            URI uri = new URI(fullUrl);
+            // On retire le nom du bucket du chemin
+            String path = uri.getPath();
+            // Le chemin de MinIO inclut le bucket, ex: /freelance-driver/avatars/...
+            // L'API externe attend probablement le chemin sans le bucket, ex: /avatars/...
+            // Cette logique est une supposition et pourrait nécessiter un ajustement.
+            int bucketNameIndex = path.indexOf('/', 1); // Trouve le 2ème '/'
+            if (bucketNameIndex != -1) {
+                return path.substring(bucketNameIndex);
+            }
+            return path;
+        } catch (URISyntaxException e) {
+            log.error("URL invalide, impossible d'extraire le chemin: {}", fullUrl, e);
+            return null;
+        }
+    }
+
+    
+
+   
+   
 }

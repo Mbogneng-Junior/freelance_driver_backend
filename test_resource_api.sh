@@ -7,7 +7,7 @@
 # --- CONFIGURATION ---
 # MODIFIEZ CES 3 VALEURS AVEC VOS PROPRES INFORMATIONS
 export VOTRE_TOKEN_UTILISATEUR="eyJraWQiOiIzODdjOWEyOC0zODBlLTRmZWUtYTVjOC0wYTEwMzE2ZTAwNGYiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwOi8vODguMTk4LjE1MC4xOTU6ODA4OC9vcGVuaWQiLCJzdWIiOiJub3RpZmljYXRpb24iLCJleHAiOjE3NTQwNDg3MTcsImlhdCI6MTc1Mzk2MjMxNywidXNlciI6eyJpZCI6ImMxOTY4NWYwLTZlMDMtMTFmMC04ODk3LTI1MTE0NDZkYzMxYSIsImZpcnN0TmFtZSI6InN0cmluZyIsImxhc3ROYW1lIjoic3RyaW5nIiwidXNlcm5hbWUiOiJub3RpZmljYXRpb24iLCJlbWFpbCI6Im5vdGlmaWNhdGlvbkBnbWFpbC5jb20iLCJlbWFpbFZlcmlmaWVkIjpmYWxzZSwicGhvbmVOdW1iZXIiOiI2NzY3Njc2NzYiLCJwaG9uZU51bWJlclZlcmlmaWVkIjpmYWxzZX0sImF1dGhvcml0aWVzIjpbIlVTRVIiXX0.A96-pnByIgPWp-awnxWVD-7w-yWlLP6mdYRSve-tVIbEYpXpn04dHYgY-XWTyjotvpzKjALbIPbcfK5l6tbr1lBmOWI2Nr_mngFF_kwuRg7x2i-sQV-8c1AYTFLI6GCpyauI3dZAEvMxZtsc61gnL2Y4XSKJ1Cyx14VnvP9wFmwxL3KoJGAoRQxsZB6hr9ZSyOCNUA1dX1-FuHx3m09NuwBuh2xtiEwdTo72PVkMb8_asVuwFw92WoUZOeRrNvmOYMoxwMOe0TSxpwQofzNbQcIQjE-Sr3IbTalo1sdGnjvdgr6Ek2r7_C2_wlRvapwPgPZ85_b_fRfX0chyCbnsXQ"
-export VOTRE_ORGANIZATION_ID="d4a0c630-6c5d-11f0-b56e-55aad7a60dfa"
+export VOTRE_ORGANIZATION_ID="18b38b0d-2421-428e-a7f3-9710ac260687"
 export VOTRE_CLE_PUBLIQUE="api_1752647119025_8d6e5340.ieGsWPxnE9eY0xBQ7n8htlTiQP3n4009"
 # --- FIN DE LA CONFIGURATION ---
 
@@ -366,3 +366,40 @@ started on port 8080 (http)
 2025-08-01T11:58:44.013+01:00  WARN 279197 --- [driver-backend] [oundedElastic-4] c.f.d.s.e.m.MockNotificationServiceImpl  : >>> REAL EMAIL SENT via LOCAL Service to [juniortakos4@gmail.com] <<<
 2025-08-01T12:01:39.636+01:00  WARN 279197 --- [driver-backend] [or-http-epoll-3] c.f.d.s.e.m.MockNotificationServiceImpl  : ==================== [LOCAL EMAIL SERVICE - REAL SEND] ====================
 2025-08-01T12:01:53.691+01:00  WARN 279197 --- [driver-backend] [oundedElastic-5] c.f.d.s.e.m.MockNotificationServiceImpl  : >>> REAL EMAIL SENT via LOCAL Service to [juniortakos4@gmail.com] <<<
+
+
+
+
+POST
+http://localhost:8080/api/mock-notifications/18b38b0d-2421-428e-a7f3-9710ac260687/firebase-settings
+
+body
+{
+  "projectId": "freelancedriver-system",
+  "privateKey": "{\"type\": \"service_account\", ...}"
+}
+
+REPONSE
+
+123456
+{    "id": "1c630f26-5482-4335-8408-29e93c10e739",    "organizationId": "18b38b0d-2421-428e-a7f3-9710ac260687",    "projectId": "freelancedriver-system",    "privateKey": "{\"type\": \"service_account\", ...}"}
+
+
+
+POST 
+
+http://localhost:8080/api/mock-notifications/18b38b0d-2421-428e-a7f3-9710ac260687/push-templates
+{
+  "settingId": "1c630f26-5482-4335-8408-29e93c10e739",
+  "title": " Trajet vers {{destination}} à {{cost}} FCFA !",
+  "body": "Le chauffeur {{driverName}} propose un nouveau voyage. Réservez votre place avant qu'il ne soit trop tard."
+}
+
+REPONSE
+{
+    "id": "c91e5217-c89d-41ca-bcf4-d94271de5493",
+    "organizationId": "18b38b0d-2421-428e-a7f3-9710ac260687",
+    "settingId": "1c630f26-5482-4335-8408-29e93c10e739",
+    "title": " Trajet vers {{destination}} à {{cost}} FCFA !",
+    "body": "Le chauffeur {{driverName}} propose un nouveau voyage. Réservez votre place avant qu'il ne soit trop tard."
+}

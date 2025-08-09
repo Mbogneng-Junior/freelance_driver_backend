@@ -28,6 +28,11 @@ public class CreateProductRequest {
     // ==============================================================================
     private String endDate;
     private String endTime;
+
+    private String paymentOption;
+    private BigDecimal regularAmount;
+    private String discountPercentage;
+    private BigDecimal discountedAmount;
     // ==============================================================================
 
     private boolean isNegotiable;
