@@ -25,7 +25,7 @@ import java.util.UUID;
 public class OnboardingService {
 
     // --- Structures de données internes pour le flux réactif ---
-    private record UserAndLoginInfo(UserDto user, LoginResponse loginResponse) {}
+    /*private record UserAndLoginInfo(UserDto user, LoginResponse loginResponse) {}
     private record AllInfo(UserDto user, OrganisationDto organisation, LoginResponse loginResponse) {}
 
     // --- Dépendances injectées ---
@@ -36,20 +36,118 @@ public class OnboardingService {
     private final ClientProfileRepository clientProfileRepository;
     private final String publicKey;
     private final String oauthClientId;
+    private final String oauthClientSecret;*/
+
+
+    private record UserAndLoginInfo(UserDto user, LoginResponse loginResponse) {}
+    private record AllInfo(UserDto user, OrganisationDto organisation, LoginResponse loginResponse) {}
+
+    private final AuthService authService;
+    private final OrganisationService organisationService;
+    private final DriverProfileRepository driverProfileRepository;
+    private final ClientProfileRepository clientProfileRepository;
+    private final ProfileService profileService;
+    private final OtpVerificationRepository otpVerificationRepository;
+    private final String publicKey;
+    private final String oauthClientId;
     private final String oauthClientSecret;
 
-    public OnboardingService(AuthService authService, OrganisationService organisationService, ChatService chatService, DriverProfileRepository driverProfileRepository, ClientProfileRepository clientProfileRepository, @Value("${freelancedriver.api.public-key}") String publicKey, @Value("${freelancedriver.oauth2.client-id}") String oauthClientId, @Value("${freelancedriver.oauth2.client-secret}") String oauthClientSecret) {
+
+
+
+    public OnboardingService(
+            AuthService authService,
+            OrganisationService organisationService,
+            DriverProfileRepository driverProfileRepository,
+            ClientProfileRepository clientProfileRepository,
+            ProfileService profileService,
+            OtpVerificationRepository otpVerificationRepository,
+            @Value("${freelancedriver.api.public-key}") String publicKey,
+            @Value("${freelancedriver.oauth2.client-id}") String oauthClientId,
+            @Value("${freelancedriver.oauth2.client-secret}") String oauthClientSecret
+    ) {
         this.authService = authService;
         this.organisationService = organisationService;
-        this.chatService = chatService;
         this.driverProfileRepository = driverProfileRepository;
         this.clientProfileRepository = clientProfileRepository;
+        this.profileService = profileService;
+        this.otpVerificationRepository = otpVerificationRepository;
         this.publicKey = publicKey;
         this.oauthClientId = oauthClientId;
         this.oauthClientSecret = oauthClientSecret;
     }
 
+
+
+
+
     public Mono<OnboardingResponse> createDriverAccount(DriverOnboardingRequest dto) {
+        return verifyOtp(dto.getEmail(), dto.getOtp())
+            .then(createGenericAccount(dto.getEmail(), dto.getPassword(), dto.getFirstName(), dto.getLastName(), dto.getPhoneNumber(), dto.getCompanyName(), dto.getCompanyDescription()))
+            .flatMap(allInfo -> {
+                log.info("Étape 5/5 (Driver): Sauvegarde du profil Driver.");
+                DriverProfile profile = new DriverProfile();
+                profile.setId(UUID.randomUUID());
+                profile.setUserId(allInfo.user().getId());
+                profile.setOrganisationId(allInfo.organisation().getOrganizationId());
+                profile.setFirstName(allInfo.user().getFirstName());
+                profile.setLastName(allInfo.user().getLastName());
+                profile.setPhoneNumber(allInfo.user().getPhoneNumber());
+                profile.setLicenseNumber(dto.getLicenseNumber());
+                profile.setVehicleDetails(dto.getVehicleDetails());
+                return driverProfileRepository.save(profile)
+                        .then(buildFinalResponse(allInfo.loginResponse()));
+            });
+    }
+
+    public Mono<OnboardingResponse> createClientAccount(ClientOnboardingRequest dto) {
+        return verifyOtp(dto.getEmail(), dto.getOtp())
+            .then(createGenericAccount(dto.getEmail(), dto.getPassword(), dto.getFirstName(), dto.getLastName(), dto.getPhoneNumber(), dto.getCompanyName(), dto.getCompanyDescription()))
+            .flatMap(allInfo -> {
+                log.info("Étape 5/5 (Client): Sauvegarde du profil Client.");
+                ClientProfile profile = new ClientProfile();
+                profile.setId(UUID.randomUUID());
+                profile.setUserId(allInfo.user().getId());
+                profile.setOrganisationId(allInfo.organisation().getOrganizationId());
+                profile.setFirstName(dto.getFirstName());
+                profile.setLastName(dto.getLastName());
+                profile.setCompanyName(dto.getCompanyName());
+                profile.setContactEmail(dto.getEmail());
+                profile.setPhoneNumber(allInfo.user().getPhoneNumber());
+                return clientProfileRepository.save(profile)
+                        .then(buildFinalResponse(allInfo.loginResponse()));
+            });
+    }
+
+    private Mono<Void> verifyOtp(String email, String otp) {
+        log.info("▶️ Vérification de l'OTP {} pour l'email {}", otp, email);
+        return otpVerificationRepository.findById(email)
+            .switchIfEmpty(Mono.defer(() -> {
+                log.error("❌ Aucune demande de vérification trouvée pour l'email : {}", email);
+                return Mono.error(new IllegalStateException("Aucune demande de vérification trouvée pour cet email."));
+            }))
+            .flatMap(verification -> {
+                if (verification.getExpiresAt().isBefore(Instant.now())) {
+                    log.warn("❌ Tentative avec un OTP expiré pour {}", email);
+                    return otpVerificationRepository.delete(verification)
+                        .then(Mono.error(new IllegalStateException("Le code de vérification a expiré.")));
+                }
+                if (!verification.getOtpCode().equals(otp)) {
+                    log.warn("❌ Tentative avec un OTP invalide pour {}", email);
+                    return Mono.error(new IllegalStateException("Le code de vérification est invalide."));
+                }
+                log.info("✅ OTP validé pour {}. Suppression de l'entrée.", email);
+                return otpVerificationRepository.delete(verification);
+            });
+    }
+
+
+
+
+   
+
+
+    /*public Mono<OnboardingResponse> createDriverAccount(DriverOnboardingRequest dto) {
         return createGenericAccount(dto.getEmail(), dto.getPassword(), dto.getFirstName(), dto.getLastName(), dto.getPhoneNumber(), dto.getCompanyName(), dto.getCompanyDescription())
                 .flatMap(allInfo -> {
                     log.info("Étape 5/5 (Driver): Sauvegarde du profil Driver spécifique.");
@@ -98,7 +196,7 @@ public class OnboardingService {
                                     .build();
                             });
                 });
-    }
+    }*/
 
 
     private Mono<AllInfo> createGenericAccount(String email, String password, String firstName, String lastName, String phoneNumber, String companyName, String companyDescription) {

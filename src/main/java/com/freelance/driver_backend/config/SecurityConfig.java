@@ -24,9 +24,19 @@ public class SecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
     private String jwkSetUri;
 
-    // ==============================================================================
-    //                         LA CORRECTION EST ICI
-    // ==============================================================================
+    
+
+    @Bean
+    @Order(0) // La priorité la plus haute
+    public SecurityWebFilterChain publicRegistrationFilterChain(ServerHttpSecurity http) {
+        return http
+            // On cible /api/auth/initiate-registration
+            .securityMatcher(new PathPatternParserServerWebExchangeMatcher("/api/auth/initiate-registration", HttpMethod.POST))
+            .csrf(csrf -> csrf.disable())
+            .authorizeExchange(exchanges -> exchanges.anyExchange().permitAll())
+            .build();
+    }
+
     
     @Bean
     @Order(1) // Priorité la plus haute

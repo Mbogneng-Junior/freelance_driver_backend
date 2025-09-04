@@ -18,4 +18,5 @@ public class DriverOnboardingRequest {
     // Infos pour le profil spécifique Driver
     private String licenseNumber;
     private String vehicleDetails;
+    private String otp;
 }

@@ -14,4 +14,5 @@ public class ClientOnboardingRequest {
     // Infos pour l'organisation du Client
     private String companyName;
     private String companyDescription;
+    private String otp;
 }

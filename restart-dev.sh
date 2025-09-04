@@ -28,7 +28,7 @@ echo ""
 echo "🪣 Étape 4/5: Création du bucket MinIO et application de la politique d'accès..."
 
 # Créer le bucket
-aws --endpoint-url http://192.168.43.4:9000 s3 mb s3://freelance-driver --profile minio
+aws --endpoint-url http://:localhost:9000 s3 mb s3://freelance-driver --profile minio
 echo "✅ Bucket 'freelance-driver' créé."
 
 # Préparer le fichier de politique (au cas où il aurait été supprimé)
@@ -51,7 +51,7 @@ cat <<EOF > policy.json
 EOF
 
 # Appliquer la politique
-aws --endpoint-url http://192.168.43.4:9000 s3api put-bucket-policy --bucket freelance-driver --policy file://policy.json --profile minio
+aws --endpoint-url http://localhost:9000 s3api put-bucket-policy --bucket freelance-driver --policy file://policy.json --profile minio
 echo "✅ Politique d'accès public en lecture appliquée au bucket."
 echo ""
 
