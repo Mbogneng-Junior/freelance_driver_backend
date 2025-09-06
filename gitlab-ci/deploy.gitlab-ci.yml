@@ -7,7 +7,7 @@ deploy:
     - echo "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
   script:
     - docker pull "$IMAGE_TAG" || true
-    - docker service rm "${SERVICE_STACK_NAME}_freelance-driver"
+    - docker service rm "${SERVICE_STACK_NAME}_freelance-driver" || true
     - docker stack deploy -c docker/docker-compose-stack.yml "$SERVICE_STACK_NAME" --with-registry-auth
   rules:
     - if: '$CI_COMMIT_REF_NAME == "master"'
