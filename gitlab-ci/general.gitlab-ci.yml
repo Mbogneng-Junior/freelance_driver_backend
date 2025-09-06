@@ -1,0 +1,32 @@
+variables:
+  ENV_NAME: $CI_COMMIT_BRANCH
+  GIT_STRATEGY: clone
+  GIT_SUBMODULE_STRATEGY: recursive
+  SPRING_PROFILES_ACTIVE: production
+  MAVEN_OPTS: >-
+    -Dmaven.repo.local=.m2/repository
+  MAVEN_CLI_OPTS: >-
+    -DskipTests
+    -s gitlab-ci/ci_settings.xml
+
+before_script:
+  - |
+    echo "Attempting to remove packages with groupId $REMOVE_GROUP_ID from Maven cache"
+    if [ -d ".m2/repository/${REMOVE_GROUP_ID//./\/}" ]; then
+      find .m2/repository/${REMOVE_GROUP_ID//./\/} -type d -exec rm -rf {} + 2>/dev/null || true
+      echo "Packages removed successfully"
+    else
+      echo "Directory .m2/repository/${REMOVE_GROUP_ID//./\/} not found. Nothing to remove."
+    fi
+ 
+
+image: maven:latest
+cache:
+  paths:
+    - .m2/repository
+
+stages:
+  - build
+  - package
+  - docker-build
+  - deploy

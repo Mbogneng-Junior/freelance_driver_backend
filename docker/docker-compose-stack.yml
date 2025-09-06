@@ -1,0 +1,46 @@
+services:
+  # SERVER: CONFIG SERVER -----------------------------------------------------------
+  freelance-driver-service:
+    image: ${IMAGE_TAG}
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - MICROSERVICES_AUTH_SERVICE_URL=https://gateway.yowyob.com/auth-service
+      - MICROSERVICES_ORGANISATION_SERVICE_URL=https://gateway.yowyob.com/organization-service
+      - MICROSERVICES_CHAT_SERVICE_URL=http://88.198.150.195:8613
+      - MICROSERVICES_NOTIFICATION_SERVICE_URL=https://gateway.yowyob.com/notification-service
+      - MICROSERVICES_RESOURCE_SERVICE_URL=https://gateway.yowyob.com/resource-service
+      - MICROSERVICES_MEDIA_SERVICE_URL=https://gateway.yowyob.com/media-service
+      - FREELANCE_DRIVER_API_PUBLIC_KEY=api_1752647119025_8d6e5340.ieGsWPxnE9eY0xBQ7n8htlTiQP3n4009
+      - FREELANCE_DRIVER_CHAT_PROJECT_ID=25cf4dfd-e847-4b59-91c7-034aa5afc200
+      - FREELANCE_DRIVER_OAUTH2_CLIENT_ID=test-client
+      - FREELANCE_DRIVER_OAUTH2_CLIENT_SECRET=secret
+      - FREELANCE_DRIVER_OAUTH2_TOKEN_URL=https://gateway.yowyob.com/auth-service/oauth/token
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWK_URI=https://gateway.yowyob.com/auth-service/openid/.well-known/jwks.json
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+      - SPRING_DATA_CASSANDRA_REQUEST_TIMEOUT=20s
+      - SPRING_DATA_CASSANDRA_CONNECTION_CONNECT_TIMEOUT=20s
+      - SPRING_DATA_CASSANDRA_CONNECTION_INIT_QUERY_TIMEOUT=20s
+      - SPRING_MAIL_HOST=smtp.gmail.com
+      - SPRING_MAIL_PORT=587
+      - SPRING_MAIL_USERNAME=mbognengj@gmail.com
+      - SPRING_MAIL_PASSWORD=fmpjyadvpepfvcws
+      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH=true
+      - SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE=true
+      - SPRING_MAIL_PROPERTIES_MAIL_DEBUG=true
+      - MINIO_ENDPOINT=http://192.168.43.204:9000
+      - MINIO_ACCESS_KEY=junioradmin
+      - MINIO_SECRET_KEY=YourStrongPassword2025
+      - MINIO_BUCKET_NAME=freelance-driver
+      - SOCKETIO_SERVER_HOST=localhost
+      - SOCKETIO_SERVER_PORT=8080
+    ports:
+      - target: 8080
+        published: ${FREELANCE_DRIVER_SERVICE_PORT}
+        protocol: tcp
+        mode: host
+    networks:
+      - openia-main-network
+
+networks:
+  openia-main-network:
+    external: true

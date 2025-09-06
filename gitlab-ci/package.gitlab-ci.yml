@@ -1,0 +1,14 @@
+package:
+  stage: package
+  tags: [yowyob]
+  dependencies:
+    - build
+  script:
+    - mvn $MAVEN_CLI_OPTS clean compile install
+    - mvn $MAVEN_CLI_OPTS deploy -DretryFailedDeploymentCount=3
+  artifacts:
+    paths:
+      - target/*.jar
+  only:
+    - master
+    - dev

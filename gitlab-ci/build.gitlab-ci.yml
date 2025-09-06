@@ -1,0 +1,5 @@
+build:
+  stage: build
+  tags: [yowyob]
+  script:
+    - mvn $MAVEN_CLI_OPTS compile

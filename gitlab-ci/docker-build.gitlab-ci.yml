@@ -1,0 +1,23 @@
+docker-build:
+  stage: docker-build
+  tags: [yowyob-cmd]
+  dependencies:
+    - package
+  script:
+    - echo "Deploying to $SPRING_PROFILES_ACTIVE environment..."
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u "$CI_REGISTRY_USER" --password-stdin
+    - docker rmi "$IMAGE_TAG" || true
+    - >-
+      docker buildx build .
+      --file docker/Dockerfile
+      --no-cache
+      --build-arg JAVA_OPTS="$JAVA_OPTS"
+      --build-arg SPRING_PROFILES_ACTIVE="$SPRING_PROFILES_ACTIVE"
+      --tag $IMAGE_TAG
+      --push
+    - docker image prune --force
+    - echo "Deployment complete"
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "master"'
+      variables:
+        SPRING_PROFILES_ACTIVE: "production"

@@ -1,0 +1,17 @@
+services:
+  organization-service:
+    image: yowyob/organization-service
+    container_name: yowyob-organization-service
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
+    environment:
+      - CONFIG_SERVER_URL=${CONFIG_SERVER_URL}
+    networks:
+      - openia-main-network
+    ports:
+      - 8089:8080
+# NETWORKS ------------------------------------------------------------------------
+networks:
+  openia-main-network:
+    external: true
