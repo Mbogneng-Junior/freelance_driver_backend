@@ -27,7 +27,7 @@ import java.util.UUID;
  * Son rôle principal est de gérer l'initiation de l'inscription et l'envoi de l'OTP.
  */
 @RestController
-@Profile("!production") 
+@Profile("!dev-resource-mock")
 @RequiredArgsConstructor
 @Slf4j
 public class AuthMockController {

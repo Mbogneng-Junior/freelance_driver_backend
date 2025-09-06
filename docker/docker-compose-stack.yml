@@ -3,7 +3,7 @@ services:
   freelance-driver-service:
     image: ${IMAGE_TAG}
     environment:
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - SPRING_PROFILES_ACTIVE=dev-resource-mock
       - MICROSERVICES_AUTH_SERVICE_URL=https://gateway.yowyob.com/auth-service
       - MICROSERVICES_ORGANISATION_SERVICE_URL=https://gateway.yowyob.com/organization-service
       - MICROSERVICES_CHAT_SERVICE_URL=http://88.198.150.195:8613
