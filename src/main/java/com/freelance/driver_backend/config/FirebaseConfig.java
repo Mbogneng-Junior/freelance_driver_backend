@@ -19,7 +19,7 @@ import java.io.InputStream;
 public class FirebaseConfig {
 
     /**
-     * Ce @Bean lit votre fichier firebase-service-account-key.json,
+     * Ce @Bean lit votre fichier firebase-service-account-key.example,
      * initialise le SDK Admin de Firebase, et retourne l'objet FirebaseApp.
      * Spring mettra cet objet à disposition de tous les autres composants qui en ont besoin.
      * @return L'instance initialisée de FirebaseApp.
@@ -32,10 +32,10 @@ public class FirebaseConfig {
             log.info("Initialisation du SDK Admin de Firebase...");
 
             // On charge le fichier de clé depuis le dossier src/main/resources
-            ClassPathResource resource = new ClassPathResource("firebase-service-account-key.json");
+            ClassPathResource resource = new ClassPathResource("firebase-service-account-key.example");
             if (!resource.exists()) {
-                log.error("Le fichier 'firebase-service-account-key.json' est introuvable dans src/main/resources/");
-                throw new IOException("Le fichier firebase-service-account-key.json est introuvable.");
+                log.error("Le fichier 'firebase-service-account-key.example' est introuvable dans src/main/resources/");
+                throw new IOException("Le fichier firebase-service-account-key.example est introuvable.");
             }
 
             try (InputStream serviceAccount = resource.getInputStream()) {

@@ -19,7 +19,7 @@ public class FirebaseService {
         try {
             // Assurez-vous que votre fichier de clé de service Firebase
             // est placé dans src/main/resources
-            ClassPathResource resource = new ClassPathResource("firebase-service-account-key.json");
+            ClassPathResource resource = new ClassPathResource("firebase-service-account-key.example");
             InputStream serviceAccount = resource.getInputStream();
 
             FirebaseOptions options = FirebaseOptions.builder()

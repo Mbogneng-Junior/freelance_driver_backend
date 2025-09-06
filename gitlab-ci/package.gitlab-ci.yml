@@ -4,6 +4,7 @@ package:
   dependencies:
     - build
   script:
+    - cp src/main/resources/firebase-service-account-key.example src/main/resources/firebase-service-account-key.json
     - mvn $MAVEN_CLI_OPTS clean compile install
     - mvn $MAVEN_CLI_OPTS deploy -DretryFailedDeploymentCount=3
   artifacts:

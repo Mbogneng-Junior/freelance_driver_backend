@@ -38,7 +38,7 @@ public class FcmHttpClient {
      */
     private Mono<String> getAccessToken() {
         return Mono.fromCallable(() -> {
-            ClassPathResource resource = new ClassPathResource("firebase-service-account-key.json");
+            ClassPathResource resource = new ClassPathResource("firebase-service-account-key.example");
             try (InputStream stream = resource.getInputStream()) {
                 GoogleCredentials credentials = GoogleCredentials.fromStream(stream)
                     .createScoped(Collections.singletonList("https://www.googleapis.com/auth/firebase.messaging"));

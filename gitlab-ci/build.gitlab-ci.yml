@@ -2,4 +2,5 @@ build:
   stage: build
   tags: [yowyob]
   script:
+    - cp src/main/resources/firebase-service-account-key.example src/main/resources/firebase-service-account-key.json
     - mvn $MAVEN_CLI_OPTS compile
