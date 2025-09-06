@@ -21,16 +21,16 @@ import java.util.List;
 @EnableReactiveCassandraRepositories(basePackages = "com.freelance.driver_backend.repository")
 public class CassandraConfig extends AbstractCassandraConfiguration {
 
-    @Value("${spring.data.cassandra.contact-points:127.0.0.1")
+    @Value("${spring.data.cassandra.contact-points:127.0.0.1}")
     private String hostname;
 
-    @Value("${spring.data.cassandra.port:9042")
+    @Value("${spring.data.cassandra.port:9042}")
     private int port;
 
-    @Value("${spring.data.cassandra.keyspace:freelancebd")
+    @Value("${spring.data.cassandra.keyspace:freelancebd}")
     private String keyspace;
 
-    @Value("${spring.data.cassandra.datacenter:datacenter1")
+    @Value("${spring.data.cassandra.datacenter:datacenter1}")
     private String datacenter;
 
     @Override
