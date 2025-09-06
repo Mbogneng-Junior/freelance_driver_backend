@@ -28,7 +28,7 @@ echo ""
 echo "🪣 Étape 4/5: Création du bucket MinIO et application de la politique d'accès..."
 
 # Créer le bucket
-aws --endpoint-url http://:localhost:9000 s3 mb s3://freelance-driver --profile minio
+aws --endpoint-url http://localhost:9000 s3 mb s3://freelance-driver --profile minio
 echo "✅ Bucket 'freelance-driver' créé."
 
 # Préparer le fichier de politique (au cas où il aurait été supprimé)
@@ -51,7 +51,7 @@ cat <<EOF > policy.json
 EOF
 
 # Appliquer la politique
-aws --endpoint-url http://localhost:9000 s3api put-bucket-policy --bucket freelance-driver --policy file://policy.json --profile minio
+
 echo "✅ Politique d'accès public en lecture appliquée au bucket."
 echo ""
 
@@ -60,3 +60,12 @@ echo ""
 echo "☕ Étape 5/5: Nettoyage du projet Maven et lancement de l'application Spring Boot..."
 ./mvnw clean
 ./mvnw spring-boot:run
+
+
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=mbognengj@gmail.com
+spring.mail.password=fmpjyadvpepfvcws
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+spring.mail.properties.mail.debug=true

@@ -24,9 +24,8 @@ public class ProfileService {
     // On n'a plus besoin de OrganisationService ici, car on ne l'appelle plus.
     // private final OrganisationService organisationService;
 
-    public Mono<UserSessionContextDto> getUserSessionContext(UUID userId, String userBearerToken, String publicKey) {
+   public Mono<UserSessionContextDto> getUserSessionContext(UUID userId, String userBearerToken, String publicKey) {
         log.info("ProfileService: Recherche du contexte pour l'utilisateur ID: {}", userId);
-
         return driverProfileRepository.findByUserId(userId)
                 .flatMap(this::buildContextForDriver)
                 .switchIfEmpty(Mono.defer(() ->
@@ -34,7 +33,7 @@ public class ProfileService {
                             .flatMap(this::buildContextForClient)
                 ))
                 .switchIfEmpty(Mono.fromSupplier(() -> {
-                    log.warn("ProfileService: Aucun profil (DRIVER ou CLIENT) trouvé pour l'utilisateur {}. Renvoi du statut NO_PROFILE.", userId);
+                    log.warn("ProfileService: Aucun profil trouvé pour l'utilisateur {}. Renvoi du statut NO_PROFILE.", userId);
                     return UserSessionContextDto.builder()
                             .userId(userId)
                             .role(UserSessionContextDto.UserRole.NO_PROFILE)
@@ -72,9 +71,32 @@ public class ProfileService {
                 .build());
     }
 
+    public Mono<DriverProfile> findDriverById(UUID driverId) {
+        log.info("Recherche du profil pour le chauffeur ID: {}", driverId);
+        return driverProfileRepository.findByUserId(driverId);
+    }
+
+    public Mono<ClientProfile> findClientById(UUID clientId) {
+        log.info("Recherche du profil pour le client ID: {}", clientId);
+        return clientProfileRepository.findByUserId(clientId);
+    }
+
+    public Mono<UUID> findOrganisationIdByUserId(UUID userId) {
+        log.info("Recherche de l'ID d'organisation pour l'utilisateur ID: {}", userId);
+        return driverProfileRepository.findByUserId(userId)
+                .map(DriverProfile::getOrganisationId)
+                .switchIfEmpty(Mono.defer(() ->
+                    clientProfileRepository.findByUserId(userId)
+                            .map(ClientProfile::getOrganisationId)
+                ))
+                .switchIfEmpty(Mono.error(new RuntimeException("Aucun profil (conducteur ou client) trouvé pour l'utilisateur " + userId)));
+    }
+
     public Mono<DriverProfile> updateDriverProfile(UUID userId, DriverProfile updatedData) {
         return driverProfileRepository.findByUserId(userId)
             .flatMap(existingProfile -> {
+                log.info("Mise à jour du profil pour le conducteur ID: {}", userId);
+                // Mise à jour sélective pour ne pas écraser les champs non fournis
                 if (updatedData.getFirstName() != null) existingProfile.setFirstName(updatedData.getFirstName());
                 if (updatedData.getLastName() != null) existingProfile.setLastName(updatedData.getLastName());
                 if (updatedData.getNickname() != null) existingProfile.setNickname(updatedData.getNickname());
@@ -85,11 +107,11 @@ public class ProfileService {
                 if (updatedData.getLanguage() != null) existingProfile.setLanguage(updatedData.getLanguage());
                 if (updatedData.getBiography() != null) existingProfile.setBiography(updatedData.getBiography());
                 if (updatedData.getVehicleDetails() != null) existingProfile.setVehicleDetails(updatedData.getVehicleDetails());
+                if (updatedData.getProfileImageUrl() != null) existingProfile.setProfileImageUrl(updatedData.getProfileImageUrl());
                 
                 return driverProfileRepository.save(existingProfile);
             });
     }
-    
 
     public Mono<ClientProfile> updateClientProfile(UUID userId, ClientProfile updatedData) {
         return clientProfileRepository.findByUserId(userId)
@@ -105,6 +127,7 @@ public class ProfileService {
                 if (updatedData.getNationality() != null) existingProfile.setNationality(updatedData.getNationality());
                 if (updatedData.getGender() != null) existingProfile.setGender(updatedData.getGender());
                 if (updatedData.getLanguage() != null) existingProfile.setLanguage(updatedData.getLanguage());
+                if (updatedData.getProfileImageUrl() != null) existingProfile.setProfileImageUrl(updatedData.getProfileImageUrl());
                 
                 return clientProfileRepository.save(existingProfile);
             });
@@ -114,6 +137,15 @@ public class ProfileService {
         return driverProfileRepository.findByUserId(userId)
                 .cast(Object.class)
                 .switchIfEmpty(Mono.defer(() -> clientProfileRepository.findByUserId(userId).cast(Object.class)));
+    }
+
+    public String getAuthorNameFromProfile(Object profile) {
+        if (profile instanceof DriverProfile) {
+            return ((DriverProfile) profile).getFirstName() + " " + ((DriverProfile) profile).getLastName();
+        } else if (profile instanceof ClientProfile) {
+            return ((ClientProfile) profile).getFirstName() + " " + ((ClientProfile) profile).getLastName();
+        }
+        return "Anonyme";
     }
 
     public String getAvatarUrlFromProfile(Object profile) {

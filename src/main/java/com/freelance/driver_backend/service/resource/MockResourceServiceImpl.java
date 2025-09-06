@@ -16,7 +16,7 @@ import java.util.UUID;
 
 
 @Service
-@Profile({"dev-mock", "dev-resource-mock"}) // Cette classe est bien active avec votre profil actuel
+@Profile({"dev-mock", "dev-resource-mock"})// Cette classe est bien active avec votre profil actuel
 @RequiredArgsConstructor
 @Slf4j
 public class MockResourceServiceImpl implements ResourceService {

@@ -38,6 +38,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+           
         </dependencies>
     </dependencyManagement>
 
@@ -66,6 +67,13 @@
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
 
+        <!-- DÉPENDANCE POUR LE SERVEUR SOCKET.IO -->
+        <dependency>
+            <groupId>com.corundumstudio.socketio</groupId>
+            <artifactId>netty-socketio</artifactId>
+            <version>2.0.11</version> <!-- Version récente et stable -->
+        </dependency>
+
               
         <!-- Support pour l'envoi d'emails -->
         <dependency>
@@ -83,9 +91,8 @@
         <dependency>
             <groupId>com.google.firebase</groupId>
             <artifactId>firebase-admin</artifactId>
-            <version>9.2.0</version> <!-- Version stable et populaire -->
+            <version>9.3.0</version>    
         </dependency>
-
               
               
         <dependency>
@@ -117,6 +124,16 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
+        </dependency>
+
+        <dependency>
+
+            <groupId>io.github.cdimascio</groupId>
+
+            <artifactId>dotenv-java</artifactId>
+
+            <version>3.0.0</version>
+
         </dependency>
 
         <!-- Dépendances de test -->

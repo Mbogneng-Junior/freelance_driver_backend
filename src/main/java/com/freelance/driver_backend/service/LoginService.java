@@ -3,6 +3,7 @@ package com.freelance.driver_backend.service;
 import com.freelance.driver_backend.dto.external.ChatUserLoginPayload;
 import com.freelance.driver_backend.dto.external.ChatUserLoginResponse;
 import com.freelance.driver_backend.dto.external.LoginRequest;
+import com.freelance.driver_backend.dto.external.LoginResponse; // Ajout de l'import LoginResponse
 import com.freelance.driver_backend.dto.onboarding.ChatSessionInfo;
 import com.freelance.driver_backend.dto.onboarding.OnboardingResponse;
 import com.freelance.driver_backend.repository.ClientProfileRepository;
@@ -21,9 +22,10 @@ import reactor.core.publisher.Mono;
 public class LoginService {
 
     private final AuthService authService;
-    private final ChatService chatService; // ← Tu peux laisser ça, même si on n'appelle pas le service pour l'instant
+    private final ChatService chatService; 
     private final DriverProfileRepository driverProfileRepository;
     private final ClientProfileRepository clientProfileRepository;
+    private final ProfileService profileService; // AJOUT DE CETTE INJECTION
 
     @Value("${freelancedriver.oauth2.client-id}")
     private String oauthClientId;
@@ -49,31 +51,26 @@ public class LoginService {
                     */
                     // ==== FIN CODE CHAT TEMPORAIREMENT DÉSACTIVÉ ====
 
-                    Mono<Object> profileMono = driverProfileRepository.findByUserId(loginResponse.getUser().getId())
-                            .cast(Object.class)
-                            .switchIfEmpty(clientProfileRepository.findByUserId(loginResponse.getUser().getId()));
+                    // La correction est ici: Utilisez profileService pour obtenir le contexte complet
+                    // y compris le rôle correctement déterminé par votre backend.
+                    // Le token de l'utilisateur est nécessaire pour appeler getOrganisationById si nécessaire dans ProfileService
+                    String userBearerToken = "Bearer " + loginResponse.getAccessToken().getToken();
 
-                    return profileMono.flatMap(profile -> {
-                        if (profile == null) {
-                            return Mono.error(new RuntimeException("No local profile found for user " + loginResponse.getUser().getId()));
-                        }
+                    return profileService.getUserSessionContext(loginResponse.getUser().getId(), userBearerToken, null)
+                            .flatMap(userContextDto -> {
+                                if (userContextDto == null) {
+                                    return Mono.error(new RuntimeException("No local profile context found for user " + loginResponse.getUser().getId()));
+                                }
 
-                        log.info("Profile found for user {}", loginResponse.getUser().getUsername());
+                                log.info("Profile context found for user {}. Role: {}", loginResponse.getUser().getUsername(), userContextDto.getRole());
 
-                        // ==== Construction de la réponse SANS chat ====
-                        return Mono.just(OnboardingResponse.builder()
-                                .token(loginResponse.getAccessToken().getToken())
-                                .profile(profile)
-                                .chatSession(null) // ← On renvoie null pour le chat pour l’instant
-                                .build());
-                    });
-
-                    /* Variante si tu veux éviter le champ `chatSession` du tout :
-                    return Mono.just(OnboardingResponse.builder()
-                            .token(loginResponse.getAccessToken().getToken())
-                            .profile(profile)
-                            .build());
-                    */
+                                // Construction de la réponse AVEC le userContextDto complet
+                                return Mono.just(OnboardingResponse.builder()
+                                        .token(loginResponse.getAccessToken().getToken())
+                                        .profile(userContextDto) // <-- C'EST ICI LA CLÉ: ENVOYER userContextDto complet
+                                        .chatSession(null)
+                                        .build());
+                            });
                 });
     }
 }

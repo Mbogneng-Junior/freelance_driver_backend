@@ -1,15 +1,19 @@
 package com.freelance.driver_backend.service;
 
 import com.freelance.driver_backend.dto.external.NotificationRequest;
+import com.freelance.driver_backend.model.DeviceToken;
+import com.freelance.driver_backend.model.DriverProfile;
 import com.freelance.driver_backend.model.Product;
 import com.freelance.driver_backend.repository.ClientProfileRepository;
 import com.freelance.driver_backend.repository.DeviceTokenRepository;
+import com.freelance.driver_backend.repository.DriverProfileRepository;
 import com.freelance.driver_backend.service.external.NotificationService;
+import io.github.cdimascio.dotenv.Dotenv; // <-- NOUVEL IMPORT
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Flux; // <-- AJOUTEZ CETTE LIGNE
 
 import java.util.List;
 import java.util.Map;
@@ -21,59 +25,119 @@ import java.util.stream.Collectors;
 @Slf4j
 public class NotificationTriggerService {
 
+    // --- Dépendances ---
     private final ClientProfileRepository clientProfileRepository;
+    private final DriverProfileRepository driverProfileRepository;
     private final DeviceTokenRepository deviceTokenRepository;
     private final NotificationService notificationService;
-    
-    private final UUID NEW_PLANNING_TEMPLATE_ID = UUID.fromString("c91e5217-c89d-41ca-bcf4-d94271de5493"); 
-    // ==============================================================================
+    private final Dotenv dotenv; // <-- INJECTION DE DOTENV POUR LIRE LE FICHIER .env
 
-    public Mono<Void> notifyAllClientsOfNewPlanning(Product planning) {
-        log.info("Déclenchement des notifications pour le nouveau planning: {}", planning.getName());
+    // --- Les IDs de templates ne sont plus des constantes fixes dans ce fichier ---
 
-        // 1. Récupérer tous les IDs des clients
-        return clientProfileRepository.findAll()
-            .map(clientProfile -> clientProfile.getUserId())
+    /**
+     * Notifie un client que son annonce a été acceptée par un chauffeur.
+     */
+    public Mono<Void> notifyClientOfAcceptedAnnouncement(Product announcement, DriverProfile driverProfile) {
+        UUID targetClientId = announcement.getClientId();
+        if (targetClientId == null) return Mono.empty();
+        
+        log.info("Déclenchement de la notification pour le client {} (annonce acceptée)", targetClientId);
+
+        return deviceTokenRepository.findByUserId(targetClientId)
+            .map(DeviceToken::getToken)
             .collectList()
-            .flatMap(clientUserIds -> {
-                if (clientUserIds.isEmpty()) {
-                    log.warn("Aucun client à notifier.");
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour le client {}.", targetClientId);
                     return Mono.empty();
                 }
                 
-                // 2. Récupérer tous les tokens pour ces IDs
-                return Flux.fromIterable(clientUserIds)
-                    .flatMap(deviceTokenRepository::findByUserId)
-                    .map(deviceToken -> deviceToken.getToken())
-                    .collect(Collectors.toSet()) // Utiliser un Set pour éviter les doublons
-                    .flatMap(tokens -> {
-                        if (tokens.isEmpty()) {
-                            log.warn("Aucun token d'appareil trouvé pour les clients.");
-                            return Mono.empty();
-                        }
-                        
-                        // 3. Construire et envoyer la notification
-                        log.info("Envoi de la notification push à {} appareils.", tokens.size());
-                        
-                        // ==============================================================================
-                        //      CONFIGURATION DES METADATA POUR LE TEMPLATE (OPTION 3)
-                        // ==============================================================================
-                        NotificationRequest request = NotificationRequest.builder()
-                            .templateId(NEW_PLANNING_TEMPLATE_ID)
-                            .recipients(List.copyOf(tokens))
-                            .metadata(Map.of(
-                                // Variables du template: {{driverName}}, {{destination}}, {{cost}}
-                                "driverName", planning.getClientName(),
-                                "destination", planning.getDropoffLocation(),
-                                "cost", planning.getDefaultSellPrice() != null ? planning.getDefaultSellPrice().toString() : "0"
-                            ))
-                            .build();
-                        // ==============================================================================
-
-                        // On appelle le service de notification (la méthode sendPushNotification)
-                        return notificationService.sendPushNotification(planning.getOrganizationId(), request, null, null);
-                    });
+                // On lit l'ID du template dynamiquement depuis le fichier .env
+                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_ANNOUNCEMENT_ACCEPTED_ID"));
+                
+                NotificationRequest request = NotificationRequest.builder()
+                    .templateId(templateId)
+                    .recipients(tokens)
+                    .metadata(Map.of(
+                        "driverName", driverProfile.getFirstName(),
+                        "tripTitle", announcement.getName(),
+                        "driverId", driverProfile.getUserId().toString() 
+                    ))
+                    .build();
+                
+                return notificationService.sendPushNotification(announcement.getOrganizationId(), request, null, null);
             })
-            .then(); // Retourne un Mono<Void> une fois terminé
+            .then();
+    }
+    
+    /**
+     * Notifie TOUS les clients de la publication d'un nouveau planning par un chauffeur.
+     */
+    public Mono<Void> notifyAllClientsOfNewPlanning(Product planning) {
+        log.info("Déclenchement des notifications à tous les clients pour le nouveau planning: {}", planning.getName());
+        
+        // On lit l'ID du template dynamiquement depuis le fichier .env
+        UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_NEW_PLANNING_ID"));
+        
+        return clientProfileRepository.findAll()
+            .map(client -> client.getUserId())
+            .collectList()
+            .flatMap(clientIds -> this.sendBroadcastNotification(
+                clientIds, 
+                templateId, 
+                planning.getOrganizationId(), 
+                Map.of(
+                    "driverName", planning.getClientName(),
+                    "destination", planning.getDropoffLocation(),
+                    "cost", planning.getDefaultSellPrice() != null ? planning.getDefaultSellPrice().toString() : "0"
+                )
+            )).then();
+    }
+
+    /**
+     * Notifie TOUS les chauffeurs de la publication d'une nouvelle annonce par un client.
+     */
+    public Mono<Void> notifyAllDriversOfNewAnnouncement(Product announcement) {
+        log.info("Déclenchement des notifications à tous les chauffeurs pour la nouvelle annonce: {}", announcement.getName());
+        
+        // On lit l'ID du template dynamiquement depuis le fichier .env
+        UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_NEW_ANNOUNCEMENT_ID"));
+        
+        return driverProfileRepository.findAll()
+            .map(driver -> driver.getUserId())
+            .collectList()
+            .flatMap(driverIds -> this.sendBroadcastNotification(
+                driverIds, 
+                templateId, 
+                announcement.getOrganizationId(), 
+                Map.of("tripTitle", announcement.getName())
+            )).then();
+    }
+    
+    /**
+     * Méthode utilitaire privée pour envoyer une notification à une liste d'utilisateurs.
+     */
+    private Mono<Boolean> sendBroadcastNotification(List<UUID> userIds, UUID templateId, UUID organizationId, Map<String, String> metadata) {
+        if (userIds.isEmpty()) {
+            log.warn("La liste d'utilisateurs à notifier est vide. Annulation.");
+            return Mono.just(true);
+        }
+        return Flux.fromIterable(userIds)
+            .flatMap(deviceTokenRepository::findByUserId)
+            .map(DeviceToken::getToken)
+            .collect(Collectors.toSet())
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour la liste d'utilisateurs.");
+                    return Mono.just(true);
+                }
+                log.info("Envoi de la notification (template {}) à {} appareils.", templateId, tokens.size());
+                NotificationRequest request = NotificationRequest.builder()
+                    .templateId(templateId)
+                    .recipients(List.copyOf(tokens))
+                    .metadata(metadata)
+                    .build();
+                return notificationService.sendPushNotification(organizationId, request, null, null);
+            });
     }
 }

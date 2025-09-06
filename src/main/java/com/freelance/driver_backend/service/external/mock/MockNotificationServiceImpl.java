@@ -48,7 +48,6 @@ public class MockNotificationServiceImpl implements NotificationService {
         log.warn("==================== [LOCAL EMAIL SERVICE - REAL SEND] ====================");
         
         if (request.getRecipients() == null || request.getRecipients().isEmpty()) {
-            log.error("[MOCK] No recipients provided.");
             return Mono.error(new IllegalArgumentException("Recipients list cannot be empty."));
         }
 
@@ -62,26 +61,21 @@ public class MockNotificationServiceImpl implements NotificationService {
             .flatMap(tuple -> {
                 var designTemplate = tuple.getT1();
                 var smtpSetting = tuple.getT2();
-
                 Context thymeleafContext = new Context();
                 if (request.getMetadata() != null) {
                     request.getMetadata().forEach(thymeleafContext::setVariable);
                 }
-                
+                String finalSubject = thymeleafTemplateEngine.process(designTemplate.getSubject(), thymeleafContext);
+                String finalHtmlBody = thymeleafTemplateEngine.process(designTemplate.getHtml(), thymeleafContext);
+
                 // ==============================================================================
                 //                         LA CORRECTION EST ICI
                 // ==============================================================================
-                // On utilise le sujet du designTemplate, qui contient les variables.
-                // Le sujet de la requête (`request.getSubject()`) est ignoré, comme prévu.
-                String finalSubject = thymeleafTemplateEngine.process(designTemplate.getSubject(), thymeleafContext);
-                String finalHtmlBody = thymeleafTemplateEngine.process(designTemplate.getHtml(), thymeleafContext);
-                // ==============================================================================
-
-                return Mono.fromRunnable(() -> {
+                // On utilise Mono.fromCallable pour mieux gérer les exceptions bloquantes
+                return Mono.fromCallable(() -> {
                     try {
                         MimeMessage message = javaMailSender.createMimeMessage();
-                        MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
-
+                        MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
                         helper.setTo(request.getRecipients().toArray(new String[0]));
                         helper.setSubject(finalSubject);
                         helper.setText(finalHtmlBody, true);
@@ -89,18 +83,22 @@ public class MockNotificationServiceImpl implements NotificationService {
 
                         javaMailSender.send(message);
                         log.warn(">>> REAL EMAIL SENT via LOCAL Service to {} <<<", request.getRecipients());
-
+                        return true; // Succès
                     } catch (Exception e) {
-                        log.error("Failed to send email via local service", e);
-                        throw new RuntimeException(e);
+                        // On logue l'erreur de manière très visible
+                        log.error("==================== ERREUR SMTP ====================");
+                        log.error("Échec de l'envoi de l'email. Cause: {}", e.getMessage());
+                        log.error("Vérifiez vos identifiants dans application.properties et le mot de passe d'application Google.");
+                        log.error("=====================================================");
+                        // On propage l'exception pour que le Mono échoue
+                        throw new RuntimeException("Failed to send email", e);
                     }
                 })
-                .subscribeOn(Schedulers.boundedElastic())
-                .thenReturn(true);
+                .subscribeOn(Schedulers.boundedElastic()) // On exécute sur un thread dédié
+                .onErrorReturn(false); // Si une exception est levée, on retourne false
+                // ==============================================================================
             })
-            .defaultIfEmpty(false)
-            .doOnError(e -> log.error("Error during local email sending process", e))
-            .onErrorReturn(false);
+            .defaultIfEmpty(false);
     }
 
     @Override

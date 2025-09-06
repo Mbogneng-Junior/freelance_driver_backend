@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
-@Profile("production") 
+@Profile("production & !dev-resource-mock")
 @Slf4j
 public class OrganisationServiceWebClientImpl implements OrganisationService {
 

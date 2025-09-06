@@ -1,43 +1,18 @@
-/*package com.freelance.driver_backend.controller;
-
-import com.freelance.driver_backend.dto.external.LoginRequest;
-import com.freelance.driver_backend.dto.onboarding.OnboardingResponse;
-import com.freelance.driver_backend.service.LoginService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import reactor.core.publisher.Mono;
-
-@RestController
-@RequestMapping("/api/auth")
-@RequiredArgsConstructor
-public class AuthController {
-
-    private final LoginService loginService;
-
-    @PostMapping("/login")
-    public Mono<ResponseEntity<OnboardingResponse>> login(@RequestBody LoginRequest loginRequest) {
-        return loginService.loginAndGetContext(loginRequest)
-                .map(ResponseEntity::ok)
-                // Si le Mono est vide (login/profil non trouvé), renvoie une erreur 401 Unauthorized
-                .defaultIfEmpty(ResponseEntity.status(401).build());
-    }
-}*/
-
 package com.freelance.driver_backend.controller;
 
 import com.freelance.driver_backend.dto.external.LoginRequest;
 import com.freelance.driver_backend.dto.external.NotificationRequest;
+import com.freelance.driver_backend.dto.external.RegistrationRequest; // Garder cet import
 import com.freelance.driver_backend.dto.onboarding.OnboardingResponse;
-import com.freelance.driver_backend.model.OtpVerification;
-import com.freelance.driver_backend.repository.OtpVerificationRepository;
+import com.freelance.driver_backend.model.OtpVerification; // Garder cet import
+import com.freelance.driver_backend.repository.OtpVerificationRepository; // Garder cet import
 import com.freelance.driver_backend.service.LoginService;
+import com.freelance.driver_backend.service.external.AuthService; // Garder cet import
 import com.freelance.driver_backend.service.external.NotificationService;
+import io.github.cdimascio.dotenv.Dotenv;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value; // Garder cet import
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -51,55 +26,92 @@ import java.util.Random;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api") // Le mapping doit être "/api" pour que /api/register fonctionne
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {
 
     private final LoginService loginService;
-    private final OtpVerificationRepository otpVerificationRepository;
+    private final OtpVerificationRepository otpVerificationRepository; // Réactiver l'injection
     private final NotificationService notificationService;
+    private final Dotenv dotenv;
+    private final AuthService authService; // Réactiver l'injection
 
-    // Assurez-vous que cet ID est correct et correspond à votre template d'email OTP
-    private static final UUID OTP_EMAIL_TEMPLATE_ID = UUID.fromString("99f0fa9f-80bd-4e54-8385-a3e0dee99770"); 
-    private static final UUID TEMP_ORGANIZATION_ID = UUID.fromString("73ba467d-9b2e-481a-827e-edbddc4f775d");
+    @Value("${freelancedriver.oauth2.client-id}")
+    private String oauthClientId;
+    @Value("${freelancedriver.oauth2.client-secret}")
+    private String oauthClientSecret;
 
-    @PostMapping("/login")
+
+    @PostMapping("/auth/login") // La route de login reste sous /api/auth/login
     public Mono<ResponseEntity<OnboardingResponse>> login(@RequestBody LoginRequest loginRequest) {
         return loginService.loginAndGetContext(loginRequest)
+                .doOnNext(response -> {
+                    log.info("▶️ Backend DEBUG: Réponse Login envoyée au frontend: {}", response);
+                })
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.status(401).build());
     }
 
-    @PostMapping("/initiate-registration")
-    public Mono<ResponseEntity<Map<String, String>>> initiateRegistration(@RequestBody Map<String, String> payload) {
-        String email = payload.get("email");
-        String firstName = payload.get("firstName");
+    /**
+     * Gère l'inscription initiale : enregistre l'utilisateur via l'API externe,
+     * puis génère et envoie l'OTP.
+     * Cet endpoint est appelé par `SignUp.tsx`.
+     */
+    @PostMapping("/register") // CETTE ROUTE DOIT ÊTRE RÉACTIVÉE
+    public Mono<ResponseEntity<Map<String, String>>> registerUserAndInitiateOtp(@RequestBody RegistrationRequest request) {
+        String email = request.getEmail();
+        String firstName = request.getFirstName();
         
-        log.info("▶️ Début du processus d'inscription OTP pour l'email: {}", email);
+        log.info("▶️ Début du processus d'inscription (API externe) et OTP pour l'email: {}", email);
         
-        String otp = String.format("%06d", new Random().nextInt(999999));
-        
-        OtpVerification newVerification = new OtpVerification();
-        newVerification.setEmail(email);
-        newVerification.setOtpCode(otp);
-        newVerification.setExpiresAt(Instant.now().plus(10, ChronoUnit.MINUTES));
+        // 1. Obtenir le token M2M (Machine-to-Machine)
+        return authService.getClientCredentialsToken(oauthClientId, oauthClientSecret)
+            .flatMap(m2mTokenResponse -> {
+                String m2mBearerToken = "Bearer " + m2mTokenResponse.getAccessToken();
 
-        return otpVerificationRepository.save(newVerification)
-            .flatMap(saved -> {
-                NotificationRequest otpRequest = NotificationRequest.builder()
-                    .templateId(OTP_EMAIL_TEMPLATE_ID)
-                    .recipients(List.of(email))
-                    .metadata(Map.of("firstName", firstName, "otpCode", otp))
-                    .build();
-                
-                return notificationService.sendEmailNotification(TEMP_ORGANIZATION_ID, otpRequest, null, null);
-            })
-            .map(success -> {
-                if (Boolean.TRUE.equals(success)) {
-                    return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "OTP sent."));
-                }
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Could not send OTP."));
+                // 2. Enregistrer l'utilisateur auprès du service d'authentification externe réel
+                return authService.registerUser(request, m2mBearerToken)
+                    .flatMap(userDto -> {
+                        log.info("✅ Utilisateur '{}' enregistré avec succès via l'API externe. ID: {}", userDto.getEmail(), userDto.getId());
+                        
+                        // 3. Générer et sauvegarder l'OTP localement
+                        String otp = String.format("%06d", new Random().nextInt(999999));
+                        OtpVerification newVerification = new OtpVerification();
+                        newVerification.setEmail(email);
+                        newVerification.setOtpCode(otp);
+                        newVerification.setExpiresAt(Instant.now().plus(10, ChronoUnit.MINUTES));
+                        
+                        return otpVerificationRepository.save(newVerification);
+                    })
+                    .flatMap(savedOtp -> {
+                        log.info("✅ OTP {} sauvegardé localement pour {}", savedOtp.getOtpCode(), email);
+
+                        // 4. Envoyer l'email OTP via le service de notification (mock ou réel, selon le profil)
+                        UUID otpTemplateId = UUID.fromString(dotenv.get("TEMPLATE_EMAIL_OTP_ID"));
+                        UUID tempOrgId = UUID.fromString(dotenv.get("SYSTEM_ORGANIZATION_ID"));
+
+                        NotificationRequest otpRequest = NotificationRequest.builder()
+                            .templateId(otpTemplateId)
+                            .recipients(List.of(email))
+                            .metadata(Map.of("firstName", firstName, "otpCode", savedOtp.getOtpCode()))
+                            .build();
+                        
+                        return notificationService.sendEmailNotification(tempOrgId, otpRequest, null, null);
+                    })
+                    .map(success -> {
+                        if (Boolean.TRUE.equals(success)) {
+                            log.info("✅ Email OTP envoyé avec succès à {}", email);
+                            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Utilisateur enregistré, OTP envoyé."));
+                        } else {
+                            log.error("❌ Échec de l'envoi de l'email OTP à {}", email);
+                            return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("message", "Utilisateur enregistré, mais l'email OTP n'a pas pu être envoyé."));
+                        }
+                    })
+                    .onErrorResume(RuntimeException.class, e -> {
+                        log.error("❌ Erreur lors de l'inscription ou de l'envoi de l'OTP pour {}: {}", email, e.getMessage());
+                        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage())));
+                    });
             });
     }
 }

@@ -12,6 +12,10 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.util.UUID;
 
+
+
+
+
 @Service
 @Profile("dev-resource-mock")
 @Slf4j
@@ -24,9 +28,10 @@ public class ResourceServiceLocalImpl implements ResourceService {
 
     @Override
     public Mono<Product> createProduct(UUID organizationId, CreateProductRequest request, String bearerToken, String publicKey) {
-        log.warn("[LOCAL-IMPL] Calling local endpoint to create a product.");
+        log.warn("[LOCAL-IMPL] Appel de MockProductController pour créer un produit/adresse.");
         return localApiClient.post()
                 .uri("/api/mock-products/{organizationId}", organizationId)
+                .header("Authorization", bearerToken)
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(Product.class);
@@ -34,21 +39,23 @@ public class ResourceServiceLocalImpl implements ResourceService {
 
     @Override
     public Flux<Product> getProductsByCategory(UUID organizationId, UUID categoryId, String bearerToken, String publicKey) {
-        log.warn("[LOCAL-IMPL] Calling local endpoint to get products.");
+        log.warn("[LOCAL-IMPL] Appel de MockProductController pour lister les produits/adresses.");
         return localApiClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/api/mock-products/{organizationId}")
                         .queryParam("categoryId", categoryId)
                         .build(organizationId))
+                .header("Authorization", bearerToken)
                 .retrieve()
                 .bodyToFlux(Product.class);
     }
 
     @Override
     public Mono<Product> updateProduct(UUID organizationId, UUID productId, CreateProductRequest request, String bearerToken, String publicKey) {
-        log.warn("[LOCAL-IMPL] Calling local endpoint to update product {}.", productId);
+        log.warn("[LOCAL-IMPL] Appel de MockProductController pour mettre à jour le produit/adresse {}.", productId);
         return localApiClient.put()
                 .uri("/api/mock-products/{organizationId}/{productId}", organizationId, productId)
+                .header("Authorization", bearerToken)
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(Product.class);
@@ -56,9 +63,10 @@ public class ResourceServiceLocalImpl implements ResourceService {
 
     @Override
     public Mono<Void> deleteProduct(UUID organizationId, UUID productId, String bearerToken, String publicKey) {
-        log.warn("[LOCAL-IMPL] Calling local endpoint to delete product {}.", productId);
+        log.warn("[LOCAL-IMPL] Appel de MockProductController pour supprimer le produit/adresse {}.", productId);
         return localApiClient.delete()
                 .uri("/api/mock-products/{organizationId}/{productId}", organizationId, productId)
+                .header("Authorization", bearerToken)
                 .retrieve()
                 .bodyToMono(Void.class);
     }

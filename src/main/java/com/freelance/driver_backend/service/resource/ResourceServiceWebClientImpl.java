@@ -15,7 +15,7 @@ import reactor.core.publisher.Mono;
 import java.util.UUID;
 
 @Service
-@Profile("production")
+@Profile("production & !dev-resource-mock") 
 @Slf4j
 public class ResourceServiceWebClientImpl implements ResourceService {
 

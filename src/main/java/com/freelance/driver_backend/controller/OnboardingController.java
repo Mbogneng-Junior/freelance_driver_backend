@@ -26,14 +26,20 @@ public class OnboardingController {
     }
 
     @PostMapping("/driver")
-    public Mono<ResponseEntity<OnboardingResponse>> onboardDriver(@RequestBody DriverOnboardingRequest request) { // <-- Changer le type de retour
+    public Mono<ResponseEntity<OnboardingResponse>> onboardDriver(@RequestBody DriverOnboardingRequest request) {
         return onboardingService.createDriverAccount(request)
-                .map(response -> new ResponseEntity<>(response, HttpStatus.CREATED)); // <-- le map est maintenant correct
+                .doOnNext(response -> { // AJOUT DU LOG ICI
+                    log.info("▶️ Backend DEBUG: Réponse Onboarding (DRIVER) envoyée au frontend: {}", response);
+                })
+                .map(response -> new ResponseEntity<>(response, HttpStatus.CREATED));
     }
 
     @PostMapping("/client")
-    public Mono<ResponseEntity<OnboardingResponse>> onboardClient(@RequestBody ClientOnboardingRequest request) { // <-- Changer le type de retour
+    public Mono<ResponseEntity<OnboardingResponse>> onboardClient(@RequestBody ClientOnboardingRequest request) {
         return onboardingService.createClientAccount(request)
-                .map(response -> new ResponseEntity<>(response, HttpStatus.CREATED)); // <-- le map est maintenant correct
+                .doOnNext(response -> { // AJOUT DU LOG ICI
+                    log.info("▶️ Backend DEBUG: Réponse Onboarding (CLIENT) envoyée au frontend: {}", response);
+                })
+                .map(response -> new ResponseEntity<>(response, HttpStatus.CREATED));
     }
 }

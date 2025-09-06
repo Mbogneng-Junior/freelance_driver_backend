@@ -11,7 +11,14 @@ public interface ProductRepository extends ReactiveCassandraRepository<Product, 
 
     Flux<Product> findByKeyOrganizationIdAndCategoryId(UUID organizationId, UUID categoryId);
 
-    // VÉRIFIEZ SURTOUT QUE CETTE MÉTHODE EST PRÉSENTE ET SANS FAUTE DE FRAPPE
     @Query("SELECT * FROM products WHERE category_id = ?0 ALLOW FILTERING")
     Flux<Product> findByCategoryId(UUID categoryId);
+    
+    Flux<Product> findByKeyOrganizationId(UUID organizationId);
+
+    @Query("SELECT * FROM products WHERE client_id = ?0 AND category_id = ?1 ALLOW FILTERING")
+    Flux<Product> findByClientIdAndCategoryId(UUID clientId, UUID categoryId);
+    
+    @Query("SELECT * FROM products WHERE reserved_by_driver_id = ?0 ALLOW FILTERING")
+    Flux<Product> findByReservedByDriverId(UUID driverId);
 }
