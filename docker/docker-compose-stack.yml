@@ -32,7 +32,7 @@ services:
       - MINIO_SECRET_KEY=YourStrongPassword2025
       - MINIO_BUCKET_NAME=freelance-driver
       - SOCKETIO_SERVER_HOST=localhost
-      - SOCKETIO_SERVER_PORT=8080
+      - SOCKETIO_SERVER_PORT=8081
       - SPRING_DATA_CASSANDRA_DATACENTER=DC1
       - SPRING_DATA_CASSANDRA_KEYSPACE=${FREELANCE_DRIVER_KEYSPACE}
       - SPRING_DATA_CASSANDRA_CONTACT_POINTS=${SCYLLA_DB_CONTACT_POINTS}
@@ -40,6 +40,10 @@ services:
     ports:
       - target: 8080
         published: ${FREELANCE_DRIVER_SERVICE_PORT}
+        protocol: tcp
+        mode: host
+      - target: 8081
+        published: ${FREELANCE_DRIVER_WS_PORT}
         protocol: tcp
         mode: host
     networks:
