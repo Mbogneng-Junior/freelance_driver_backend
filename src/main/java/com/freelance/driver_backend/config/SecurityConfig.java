@@ -20,6 +20,7 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 
+
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
@@ -50,6 +51,7 @@ public class SecurityConfig {
                 .pathMatchers(HttpMethod.GET,
                     "/api/announcements", 
                     "/api/planning/published", 
+                    "/api/planning/user/**", // Ajout de cette ligne
                     "/api/reviews/user/**", 
                     "/api/profiles/user/**", 
                     "/api/vehicles/user/**", 

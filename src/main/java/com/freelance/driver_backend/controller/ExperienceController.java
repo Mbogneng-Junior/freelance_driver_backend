@@ -21,7 +21,7 @@ public class ExperienceController {
     private final ResourceService resourceService;
 
     // UUID fixe pour la catégorie "expériences"
-    private static final UUID EXPERIENCE_CATEGORY_ID = UUID.fromString("b2c3d4e5-f6a7-8901-2345-67890abcdef1");
+    private static final UUID EXPERIENCE_CATEGORY_ID = UUID.fromString("e1f2a3b4-c5d6-7890-1234-567890abcdef");
 
     /**
      * PUBLIC: Récupère les expériences d'un utilisateur spécifique par son ID.

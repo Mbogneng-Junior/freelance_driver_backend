@@ -18,7 +18,8 @@ public class Review {
 
     private UUID targetUserId; // L'utilisateur qui est noté
     private UUID authorId;     // L'utilisateur qui a écrit la note
-    private String authorName;
+    private String authorFirstName;
+    private String authorLastName;
     private String authorProfileImageUrl;
     private int score;
     private String comment;

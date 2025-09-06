@@ -20,7 +20,7 @@ public class VehicleController {
     private final ProfileService profileService;
     private final ResourceService resourceService;
 
-    private static final UUID VEHICLE_CATEGORY_ID = UUID.fromString("a1b2c3d4-e5f6-7890-1234-567890abcdef");
+    private static final UUID VEHICLE_CATEGORY_ID = UUID.fromString("e2a7f23e-a3a3-4b0c-852a-227a1c1d6a7e");
 
     @GetMapping("/user/{userId}")
     public Flux<Product> getVehiclesForUser(

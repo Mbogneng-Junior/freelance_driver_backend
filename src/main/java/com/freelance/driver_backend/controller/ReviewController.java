@@ -52,7 +52,8 @@ public class ReviewController {
                         review.setScore(request.getScore());
                         review.setComment(request.getComment());
                         review.setAuthorId(authorId);
-                        review.setAuthorName(profileService.getAuthorNameFromProfile(authorProfile));
+                        review.setAuthorFirstName(profileService.getAuthorFirstNameFromProfile(authorProfile));
+                        review.setAuthorLastName(profileService.getAuthorLastNameFromProfile(authorProfile));
                         review.setAuthorProfileImageUrl(profileService.getAvatarUrlFromProfile(authorProfile));
                         review.setCreatedAt(Instant.now().toEpochMilli());
                         
@@ -65,6 +66,18 @@ public class ReviewController {
     @GetMapping("/user/{userId}")
     public Flux<Review> getReviewsForUser(@PathVariable UUID userId) {
         log.info("Récupération des avis pour l'utilisateur ID: {}", userId);
-        return reviewRepository.findByTargetUserId(userId);
+        return reviewRepository.findByTargetUserId(userId)
+                .flatMap(this::enrichReviewWithAuthorDetails);
+    }
+
+    private Mono<Review> enrichReviewWithAuthorDetails(Review review) {
+        return profileService.findProfileByUserId(review.getAuthorId())
+            .flatMap(authorProfile -> {
+                review.setAuthorFirstName(profileService.getAuthorFirstNameFromProfile(authorProfile));
+                review.setAuthorLastName(profileService.getAuthorLastNameFromProfile(authorProfile));
+                review.setAuthorProfileImageUrl(profileService.getAvatarUrlFromProfile(authorProfile));
+                return Mono.just(review);
+            })
+            .defaultIfEmpty(review); // En cas d'erreur (ex: auteur supprimé), on renvoie l'avis sans les détails
     }
 }

@@ -139,11 +139,20 @@ public class ProfileService {
                 .switchIfEmpty(Mono.defer(() -> clientProfileRepository.findByUserId(userId).cast(Object.class)));
     }
 
-    public String getAuthorNameFromProfile(Object profile) {
+    public String getAuthorFirstNameFromProfile(Object profile) {
         if (profile instanceof DriverProfile) {
-            return ((DriverProfile) profile).getFirstName() + " " + ((DriverProfile) profile).getLastName();
+            return ((DriverProfile) profile).getFirstName();
         } else if (profile instanceof ClientProfile) {
-            return ((ClientProfile) profile).getFirstName() + " " + ((ClientProfile) profile).getLastName();
+            return ((ClientProfile) profile).getFirstName();
+        }
+        return "Utilisateur";
+    }
+
+    public String getAuthorLastNameFromProfile(Object profile) {
+        if (profile instanceof DriverProfile) {
+            return ((DriverProfile) profile).getLastName();
+        } else if (profile instanceof ClientProfile) {
+            return ((ClientProfile) profile).getLastName();
         }
         return "Anonyme";
     }

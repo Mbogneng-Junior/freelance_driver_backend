@@ -1,3 +1,41 @@
+Telecharger aws et configurer
+
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+
+unzip awscliv2.zip
+sudo ./aws/install
+
+aws --version
+
+profile
+aws configure --profile minio
+
+docker-compose.yml :
+
+AWS Access Key ID [None]:
+
+    Tapez : junioradmin et appuyez sur Entrée.
+
+    (Source : la variable MINIO_ROOT_USER de votre docker-compose.yml)
+
+AWS Secret Access Key [None]:
+
+    Tapez : YourStrongPassword2025 et appuyez sur Entrée.
+
+    (Source : la variable MINIO_ROOT_PASSWORD de votre docker-compose.yml)
+
+Default region name [None]:
+
+    Tapez : us-east-1 et appuyez sur Entrée.
+
+    (MinIO n'utilise pas de région, mais le CLI exige une valeur. us-east-1 est une valeur par défaut standard et sans danger.)
+
+Default output format [None]:
+
+    Tapez : json et appuyez sur Entrée.
+
+    (C'est le format de sortie le plus lisible et le plus facile à utiliser dans des scripts.)
+
 #!/bin/bash
 # Un script simple pour réinitialiser complètement l'environnement de développement.
 # Exécutez-le depuis la racine de votre projet driver-backend.
@@ -62,10 +100,3 @@ echo "☕ Étape 5/5: Nettoyage du projet Maven et lancement de l'application Sp
 ./mvnw spring-boot:run
 
 
-spring.mail.host=smtp.gmail.com
-spring.mail.port=587
-spring.mail.username=mbognengj@gmail.com
-spring.mail.password=fmpjyadvpepfvcws
-spring.mail.properties.mail.smtp.auth=true
-spring.mail.properties.mail.smtp.starttls.enable=true
-spring.mail.properties.mail.debug=true
