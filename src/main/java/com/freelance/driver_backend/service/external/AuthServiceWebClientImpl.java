@@ -66,7 +66,38 @@ public class AuthServiceWebClientImpl implements AuthService {
                         response.bodyToMono(String.class)
                                 .flatMap(errorBody -> {
                                     log.error("Error during user registration for {}: {} - {}", request.getEmail(), response.statusCode(), errorBody);
-                                    return Mono.error(new RuntimeException("Registration failed: " + errorBody));
+
+                                    String clientErrorMessage = "Registration failed with status " + response.statusCode();
+                                    
+                                    // AJOUT ICI : Log la réponse brute pour le débogage côté frontend
+                                    clientErrorMessage += ": External service responded with: " + (errorBody != null && !errorBody.isEmpty() ? errorBody : "[Empty or Null Body]");
+
+                                    try {
+                                        ObjectMapper mapper = new ObjectMapper();
+                                        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false); // Ignorer les champs inconnus
+                                        JsonNode root = mapper.readTree(errorBody);
+
+                                        // Tentative d'extraction de messages d'erreur plus spécifiques
+                                        if (root.has("message") && root.get("message").isTextual()) {
+                                            clientErrorMessage = root.get("message").asText();
+                                        } else if (root.has("error") && root.get("error").isTextual()) {
+                                            clientErrorMessage = root.get("error").asText();
+                                        }
+                                        
+                                        if (root.has("errors") && root.get("errors").isObject()) {
+                                            // Ajoute les détails des erreurs de validation si présents
+                                            clientErrorMessage += " (Details: " + root.get("errors").toString() + ")";
+                                        }
+                                        
+                                    } catch (JsonProcessingException e) {
+                                        log.warn("Could not parse errorBody from external auth service as JSON: {}", errorBody, e);
+                                        // Le clientErrorMessage inclut déjà le corps brut, donc pas besoin de l'ajouter ici
+                                    } catch (Exception e) {
+                                        log.error("Unexpected error while processing errorBody from external auth service: {}", errorBody, e);
+                                        // Le clientErrorMessage inclut déjà le corps brut
+                                    }
+    
+                                    return Mono.error(new RuntimeException(clientErrorMessage));
                                 })
                 )
                 .bodyToMono(UserDto.class);
