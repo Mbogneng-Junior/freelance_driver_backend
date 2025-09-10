@@ -1,11 +1,11 @@
-// src/main/java/com/freelance/driver_backend/config/FirebaseConfig.java
+// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/FirebaseConfig.java
 
 package com.freelance.driver_backend.config;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
-import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessaging; // <-- CET IMPORT EST CRUCIAL
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

@@ -100,3 +100,11 @@ echo "☕ Étape 5/5: Nettoyage du projet Maven et lancement de l'application Sp
 ./mvnw spring-boot:run
 
 
+
+
+025-09-07T18:40:30.343+01:00  WARN 395806 --- [driver-backend] [        s1-io-4] c.f.d.s.i.ResourceServiceLocalImpl       : [LOCAL-IMPL] Appel de MockProductController pour créer un produit/adresse.
+2025-09-07T18:40:30.375+01:00  WARN 395806 --- [driver-backend] [or-http-epoll-4] c.f.d.controller.MockProductController   : [MOCK-CONTROLLER] Création d'un produit pour l'organisation 4b869286-feb3-4e80-9dc6-03d34790eadc: Yaounder
+2025-09-07T18:53:03.496+01:00  INFO 395806 --- [driver-backend] [or-http-epoll-5] c.f.d.service.ProfileService             : ProfileService: Recherche du contexte pour l'utilisateur ID: 8e612830-8c11-11f0-9272-95a801879675
+2025-09-07T18:53:03.499+01:00  INFO 395806 --- [driver-backend] [        s1-io-4] c.f.d.service.ProfileService             : ProfileService: Profil DRIVER trouvé. Construction du contexte avec les données locales.
+2025-09-07T18:53:03.500+01:00  WARN 395806 --- [driver-backend] [        s1-io-4] c.f.d.s.i.ResourceServiceLocalImpl       : [LOCAL-IMPL] Appel de MockProductController pour créer un produit/adresse.
+2025-09-07T18:53:03.507+01:00  WARN 395806 --- [driver-backend] [or-http-epoll-4] c.f.d.controller.MockProductController   : [MOCK-CONTROLLER] Création d'un produit pour l'organisation 4b869286-feb3-4e80-9dc6-03d34790eadc: Yaounde

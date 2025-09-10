@@ -37,7 +37,9 @@ public class MockProductController {
             @PathVariable UUID organizationId,
             @RequestBody CreateProductRequest request) {
 
-        log.warn("[MOCK-CONTROLLER] Création d'un produit pour l'organisation {}: {}", organizationId, request.getName());
+        log.warn("[MOCK-CONTROLLER] Création d'un produit pour l'organisation {}. Request reçue: {}", organizationId, request);
+        log.warn("[MOCK-CONTROLLER] Request details: clientId={}, categoryId={}, name={}", request.getClientId(), request.getCategoryId(), request.getName());
+
 
         Product newProduct = new Product();
         ProductKey key = new ProductKey(organizationId, UUID.randomUUID());
@@ -46,8 +48,15 @@ public class MockProductController {
         // On utilise la méthode centralisée pour remplir l'objet
         updateProductFromRequest(newProduct, request);
 
+        log.warn("[MOCK-CONTROLLER] Objet Product construit avant sauvegarde: ID={}, OrgID={}, ClientID={}, CatID={}, Nom='{}'",
+                 newProduct.getId(), newProduct.getOrganizationId(), newProduct.getClientId(), newProduct.getCategoryId(), newProduct.getName());
+
         return productRepository.save(newProduct)
-                .map(savedProduct -> new ResponseEntity<>(savedProduct, HttpStatus.CREATED));
+                .map(savedProduct -> {
+                    log.warn("[MOCK-CONTROLLER] Produit sauvegardé avec succès. ID: {}, OrgID: {}, ClientID: {}, CatID: {}, Nom: '{}', Statut: '{}'",
+                             savedProduct.getId(), savedProduct.getOrganizationId(), savedProduct.getClientId(), savedProduct.getCategoryId(), savedProduct.getName(), savedProduct.getStatus());
+                    return new ResponseEntity<>(savedProduct, HttpStatus.CREATED);
+                });
     }
 
     /**

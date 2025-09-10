@@ -76,6 +76,12 @@ public class CassandraConfig extends AbstractCassandraConfiguration {
         return list;
     }
 
+     /* @Override
+    protected List<DropKeyspaceSpecification> getKeyspaceDrops() {
+        // CORRECTION ICI : Retournez une liste vide pour NE PAS supprimer le keyspace.
+        return Collections.emptyList(); // Ou new ArrayList<>() pour plus de clarté
+    }*/
+
     /**
      * Configuration avancée pour surcharger les timeouts du driver Cassandra.
      * Cette méthode est plus robuste que la configuration via application.properties.
