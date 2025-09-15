@@ -1,6 +1,5 @@
 package com.freelance.driver_backend.model;
 
-
 import org.springframework.data.cassandra.core.mapping.Column;
 import org.springframework.data.cassandra.core.mapping.PrimaryKey;
 import org.springframework.data.cassandra.core.mapping.Table;
@@ -14,7 +13,6 @@ public class DriverProfile {
 
     @PrimaryKey
     private UUID id;
-    
 
     @Indexed
     @Column("user_id")
@@ -38,17 +36,19 @@ public class DriverProfile {
     @Column("vehicle_details")
     private String vehicleDetails;
 
-    @Column("profile_image_url") private String profileImageUrl;
+    @Column("profile_image_url")
+    private String profileImageUrl;
 
-
-
-    @Column("nickname") private String nickname;
-    @Column("birth_date") private String birthDate; // On garde en String pour la simplicité
-    @Column("nationality") private String nationality;
-    @Column("gender") private String gender;
-    @Column("language") private String language;
-    @Column("biography") private String biography;
+    @Column("nickname")
+    private String nickname;
+    @Column("birth_date")
+    private String birthDate; // On garde en String pour la simplicité
+    @Column("nationality")
+    private String nationality;
+    @Column("gender")
+    private String gender;
+    @Column("language")
+    private String language;
+    @Column("biography")
+    private String biography;
 }
-
-    
-

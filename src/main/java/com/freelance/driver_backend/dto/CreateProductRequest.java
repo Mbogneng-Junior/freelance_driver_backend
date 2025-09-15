@@ -8,13 +8,16 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * DTO (Data Transfer Object) universel pour la création et la mise à jour de "Produits".
- * Il regroupe tous les champs potentiels envoyés par le frontend pour différentes entités
+ * DTO (Data Transfer Object) universel pour la création et la mise à jour de
+ * "Produits".
+ * Il regroupe tous les champs potentiels envoyés par le frontend pour
+ * différentes entités
  * (Annonces, Plannings, Véhicules, Adresses, etc.).
  */
 @Data
 public class CreateProductRequest {
-    
+    private String id; // L'ID du produit (UUID en string)
+
     // --- Champs Communs ---
     private String name;
     private String shortDescription;
@@ -30,7 +33,7 @@ public class CreateProductRequest {
     private String startTime;
     private String endDate;
     private String endTime;
-    
+
     // --- Champs d'Annonce Spécifiques ---
     private String baggageInfo;
     private boolean isNegotiable;
@@ -42,12 +45,13 @@ public class CreateProductRequest {
     private String clientPhoneNumber;
     private String clientProfileImageUrl;
 
-    // --- Champs Spécifiques au Planning (stockés dans metadata par le controller) ---
+    // --- Champs Spécifiques au Planning (stockés dans metadata par le controller)
+    // ---
     private String paymentOption;
     private BigDecimal regularAmount;
     private String discountPercentage;
     private BigDecimal discountedAmount;
-    
+
     // --- Stockage Flexible ---
     private Map<String, String> metadata;
 }

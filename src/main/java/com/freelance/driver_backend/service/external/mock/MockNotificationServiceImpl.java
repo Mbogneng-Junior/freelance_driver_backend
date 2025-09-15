@@ -6,6 +6,7 @@ import com.freelance.driver_backend.repository.EmailTemplateRepository;
 import com.freelance.driver_backend.repository.PushTemplateRepository;
 import com.freelance.driver_backend.repository.SmtpSettingRepository;
 import com.freelance.driver_backend.service.external.NotificationService;
+import com.freelance.driver_backend.service.FcmHttpClient;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,11 +23,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-import com.google.firebase.messaging.BatchResponse;
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.Message;
-import com.google.firebase.messaging.Notification;
+import com.google.firebase.FirebaseApp;
 
 @Service
 @Profile({"dev-mock", "dev-resource-mock"})
@@ -40,9 +39,9 @@ public class MockNotificationServiceImpl implements NotificationService {
     private final JavaMailSender javaMailSender;
     private final SpringTemplateEngine thymeleafTemplateEngine;
     private final PushTemplateRepository pushTemplateRepository;
+    private final FirebaseApp firebaseApp; 
+    private final FcmHttpClient fcmHttpClient;
 
-    
-        
     @Override
     public Mono<Boolean> sendEmailNotification(UUID organisationId, NotificationRequest request, String userBearerToken, String publicKey) {
         log.warn("==================== [LOCAL EMAIL SERVICE - REAL SEND] ====================");
@@ -68,10 +67,6 @@ public class MockNotificationServiceImpl implements NotificationService {
                 String finalSubject = thymeleafTemplateEngine.process(designTemplate.getSubject(), thymeleafContext);
                 String finalHtmlBody = thymeleafTemplateEngine.process(designTemplate.getHtml(), thymeleafContext);
 
-                // ==============================================================================
-                //                         LA CORRECTION EST ICI
-                // ==============================================================================
-                // On utilise Mono.fromCallable pour mieux gérer les exceptions bloquantes
                 return Mono.fromCallable(() -> {
                     try {
                         MimeMessage message = javaMailSender.createMimeMessage();
@@ -83,59 +78,48 @@ public class MockNotificationServiceImpl implements NotificationService {
 
                         javaMailSender.send(message);
                         log.warn(">>> REAL EMAIL SENT via LOCAL Service to {} <<<", request.getRecipients());
-                        return true; // Succès
+                        return true;
                     } catch (Exception e) {
-                        // On logue l'erreur de manière très visible
                         log.error("==================== ERREUR SMTP ====================");
                         log.error("Échec de l'envoi de l'email. Cause: {}", e.getMessage());
                         log.error("Vérifiez vos identifiants dans application.properties et le mot de passe d'application Google.");
                         log.error("=====================================================");
-                        // On propage l'exception pour que le Mono échoue
                         throw new RuntimeException("Failed to send email", e);
                     }
                 })
-                .subscribeOn(Schedulers.boundedElastic()) // On exécute sur un thread dédié
-                .onErrorReturn(false); // Si une exception est levée, on retourne false
-                // ==============================================================================
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorReturn(false);
             })
             .defaultIfEmpty(false);
     }
 
     @Override
     public Mono<Boolean> sendPushNotification(UUID organisationId, NotificationRequest request, String userBearerToken, String publicKey) {
-        log.warn("==================== [LOCAL PUSH SERVICE - REAL SEND] ====================");
+        log.warn("==================== [LOCAL PUSH SERVICE - REAL SEND VIA FCM HTTP CLIENT] ====================");
         
+        if (request.getRecipients() == null || request.getRecipients().isEmpty()) {
+            log.warn("[LOCAL PUSH SERVICE] Aucuns destinataires pour la notification push.");
+            return Mono.just(false);
+        }
+
         return pushTemplateRepository.findById(request.getTemplateId())
             .flatMap(pushTemplate -> {
-                // Remplacer les variables dans le titre et le corps
                 String finalTitle = replaceMetadata(pushTemplate.getTitle(), request.getMetadata());
                 String finalBody = replaceMetadata(pushTemplate.getBody(), request.getMetadata());
 
-                // Construire les messages pour Firebase
-                List<Message> messages = request.getRecipients().stream()
-                    .map(token -> Message.builder()
-                        .setNotification(Notification.builder()
-                            .setTitle(finalTitle)
-                            .setBody(finalBody)
-                            .build())
-                        .setToken(token) // Le token de l'appareil
-                        .build())
-                    .toList();
-
-                // Publier l'envoi sur un thread non-bloquant
-                return Mono.fromCallable(() -> {
-                        BatchResponse response = FirebaseMessaging.getInstance().sendAll(messages);
-                        log.warn(">>> REAL PUSH NOTIFICATIONS SENT via LOCAL Service. Success: {}, Failure: {} <<<", 
-                                 response.getSuccessCount(), response.getFailureCount());
-                        return response.getFailureCount() == 0;
-                    })
-                    .subscribeOn(Schedulers.boundedElastic());
+                // --- MODIFICATION ICI : Appeler FcmHttpClient avec le dataPayload ---
+                return fcmHttpClient.sendNotifications(request.getRecipients(), finalTitle, finalBody, request.getData()) // <-- AJOUT DE request.getData()
+                           .then(Mono.just(true)) 
+                           .onErrorResume(e -> { 
+                               log.error("❌ Erreur lors de l'envoi de notifications push via FcmHttpClient: {}", e.getMessage());
+                               return Mono.just(false);
+                           });
             })
             .defaultIfEmpty(false)
-            .doOnError(e -> log.error("Error during local push sending process", e))
+            .doOnError(e -> log.error("Error during local push sending process (outside flatMap)", e))
             .onErrorReturn(false);
     }
-    // Petite méthode utilitaire pour remplacer les variables
+
     private String replaceMetadata(String text, Map<String, String> metadata) {
         if (text == null || metadata == null) return text;
         for (Map.Entry<String, String> entry : metadata.entrySet()) {
@@ -143,10 +127,4 @@ public class MockNotificationServiceImpl implements NotificationService {
         }
         return text;
     }
-
-
-        
-
-
-
 }

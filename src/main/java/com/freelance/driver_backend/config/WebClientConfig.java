@@ -13,7 +13,6 @@ import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
-
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
@@ -31,25 +30,42 @@ public class WebClientConfig {
 
     @Value("${server.port}")
     private String localServerPort;
-    
+
     @Value("${microservices.resource-service.url}")
     private String resourceServiceUrl;
 
+    @Value("${microservices.media-service.url}") // URL du service de médias, nouvellement ajoutée
+    private String mediaServiceUrl;
+
     /**
-     * Crée un HttpClient réutilisable avec des timeouts et une configuration de connexion robustes.
+     * Crée un HttpClient réutilisable avec des timeouts standards.
+     * 
      * @return HttpClient configuré
      */
     private HttpClient createConfiguredHttpClient() {
         return HttpClient.create()
-                // Timeout pour établir la connexion initiale (incluant le handshake SSL)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 20000) // 20 secondes
-                // Timeout global pour recevoir une réponse après l'envoi de la requête
-                .responseTimeout(Duration.ofSeconds(20))
-                .doOnConnected(conn ->
-                        conn.addHandlerLast(new ReadTimeoutHandler(20, TimeUnit.SECONDS))
-                            .addHandlerLast(new WriteTimeoutHandler(20, TimeUnit.SECONDS)));
+                .responseTimeout(Duration.ofSeconds(20)) // 20 secondes
+                .doOnConnected(conn -> conn.addHandlerLast(new ReadTimeoutHandler(20, TimeUnit.SECONDS))
+                        .addHandlerLast(new WriteTimeoutHandler(20, TimeUnit.SECONDS)));
     }
-    
+
+    /**
+     * Crée un HttpClient configuré avec des timeouts plus longs pour les opérations
+     * de média.
+     * Les téléversements de fichiers peuvent prendre plus de temps.
+     * 
+     * @return HttpClient configuré pour les médias
+     */
+    private HttpClient createMediaServiceHttpClient() {
+        return HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000) // 30 secondes pour la connexion
+                .responseTimeout(Duration.ofSeconds(60)) // 60 secondes pour la réponse complète
+                .doOnConnected(conn -> conn.addHandlerLast(new ReadTimeoutHandler(60, TimeUnit.SECONDS)) // 60s read
+                                                                                                         // timeout
+                        .addHandlerLast(new WriteTimeoutHandler(60, TimeUnit.SECONDS))); // 60s write timeout
+    }
+
     @Bean
     @Qualifier("authServiceWebClient")
     public WebClient authServiceWebClient() {
@@ -60,18 +76,16 @@ public class WebClientConfig {
                 .build();
     }
 
-    // --- MODIFICATION IMPORTANTE ICI ---
     @Bean
     @Qualifier("organisationServiceWebClient")
     public WebClient organisationServiceWebClient() {
-        // On utilise la même configuration robuste pour le service d'organisation
         return WebClient.builder()
                 .baseUrl(organisationServiceUrl)
-                .clientConnector(new ReactorClientHttpConnector(createConfiguredHttpClient())) // <-- On applique la config
+                .clientConnector(new ReactorClientHttpConnector(createConfiguredHttpClient()))
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
-    
+
     @Bean
     @Qualifier("chatServiceWebClient")
     public WebClient chatServiceWebClient() {
@@ -82,16 +96,33 @@ public class WebClientConfig {
                 .build();
     }
 
-
     @Bean
     @Qualifier("localApiWebClient")
     public WebClient localApiWebClient() {
         return WebClient.builder().baseUrl("http://localhost:" + localServerPort).build();
     }
-    
+
     @Bean
     @Qualifier("externalResourceWebClient")
     public WebClient externalResourceWebClient() {
         return WebClient.builder().baseUrl(resourceServiceUrl).build();
     }
+
+    /**
+     * Crée un WebClient pour interagir avec le service de médias externe.
+     * Utilise des timeouts plus longs pour les opérations de fichiers.
+     * 
+     * @return WebClient configuré pour le service de médias
+     */
+    @Bean
+    @Qualifier("externalMediaServiceWebClient")
+    public WebClient externalMediaServiceWebClient() {
+        return WebClient.builder()
+                .baseUrl(mediaServiceUrl)
+                .clientConnector(new ReactorClientHttpConnector(createMediaServiceHttpClient()))
+                // Le Content-Type est défini par BodyInserters.fromMultipartData() pour les
+                // uploads de fichiers
+                .build();
+    }
+
 }

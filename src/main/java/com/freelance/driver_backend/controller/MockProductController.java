@@ -1,5 +1,3 @@
-// src/main/java/com/freelance/driver_backend/controller/MockProductController.java
-
 package com.freelance.driver_backend.controller;
 
 import com.freelance.driver_backend.dto.CreateProductRequest;
@@ -16,9 +14,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.UUID;
-
-
-
 
 @RestController
 @RequestMapping("/api/mock-products/{organizationId}")
@@ -37,24 +32,47 @@ public class MockProductController {
             @PathVariable UUID organizationId,
             @RequestBody CreateProductRequest request) {
 
-        log.warn("[MOCK-CONTROLLER] Création d'un produit pour l'organisation {}. Request reçue: {}", organizationId, request);
-        log.warn("[MOCK-CONTROLLER] Request details: clientId={}, categoryId={}, name={}", request.getClientId(), request.getCategoryId(), request.getName());
-
+        log.warn("[MOCK-CONTROLLER] Création d'un produit pour l'organisation {}. Request reçue: {}", organizationId,
+                request);
+        // AJOUT : Inclure l'ID de la requête dans les logs pour le diagnostic
+        log.warn("[MOCK-CONTROLLER] Request details: clientId={}, categoryId={}, name={}, requestedId={}",
+                request.getClientId(), request.getCategoryId(), request.getName(), request.getId());
 
         Product newProduct = new Product();
-        ProductKey key = new ProductKey(organizationId, UUID.randomUUID());
+        ProductKey key;
+
+        // --- CORRECTION : Utiliser l'ID fourni par le frontend si présent ---
+        if (request.getId() != null && !request.getId().isEmpty()) {
+            try {
+                // Tenter de convertir l'ID fourni en UUID
+                key = new ProductKey(organizationId, UUID.fromString(request.getId()));
+                log.warn("[MOCK-CONTROLLER] Création de produit avec ID fourni par le frontend: {}", request.getId());
+            } catch (IllegalArgumentException e) {
+                // Si l'ID fourni n'est pas un UUID valide, rejeter la requête
+                log.error("[MOCK-CONTROLLER] ID de produit fourni invalide par le frontend: {}", request.getId(), e);
+                return Mono.error(new IllegalArgumentException("L'ID de produit fourni par le frontend est invalide."));
+            }
+        } else {
+            // Si aucun ID n'est fourni, générer un nouvel UUID
+            key = new ProductKey(organizationId, UUID.randomUUID());
+            log.warn("[MOCK-CONTROLLER] Création de produit avec ID généré (aucun fourni): {}", key.getId());
+        }
         newProduct.setKey(key);
 
         // On utilise la méthode centralisée pour remplir l'objet
         updateProductFromRequest(newProduct, request);
 
-        log.warn("[MOCK-CONTROLLER] Objet Product construit avant sauvegarde: ID={}, OrgID={}, ClientID={}, CatID={}, Nom='{}'",
-                 newProduct.getId(), newProduct.getOrganizationId(), newProduct.getClientId(), newProduct.getCategoryId(), newProduct.getName());
+        log.warn(
+                "[MOCK-CONTROLLER] Objet Product construit avant sauvegarde: ID={}, OrgID={}, ClientID={}, CatID={}, Nom='{}'",
+                newProduct.getId(), newProduct.getOrganizationId(), newProduct.getClientId(),
+                newProduct.getCategoryId(), newProduct.getName());
 
         return productRepository.save(newProduct)
                 .map(savedProduct -> {
-                    log.warn("[MOCK-CONTROLLER] Produit sauvegardé avec succès. ID: {}, OrgID: {}, ClientID: {}, CatID: {}, Nom: '{}', Statut: '{}'",
-                             savedProduct.getId(), savedProduct.getOrganizationId(), savedProduct.getClientId(), savedProduct.getCategoryId(), savedProduct.getName(), savedProduct.getStatus());
+                    log.warn(
+                            "[MOCK-CONTROLLER] Produit sauvegardé avec succès. ID: {}, OrgID: {}, ClientID: {}, CatID: {}, Nom: '{}', Statut: '{}'",
+                            savedProduct.getId(), savedProduct.getOrganizationId(), savedProduct.getClientId(),
+                            savedProduct.getCategoryId(), savedProduct.getName(), savedProduct.getStatus());
                     return new ResponseEntity<>(savedProduct, HttpStatus.CREATED);
                 });
     }
@@ -64,7 +82,7 @@ public class MockProductController {
      */
     @GetMapping
     public Flux<Product> getProductsByCategory(
-            @PathVariable UUID organizationId, 
+            @PathVariable UUID organizationId,
             @RequestParam UUID categoryId) {
         log.warn("[MOCK-CONTROLLER] Récupération des produits pour org {} et catégorie {}", organizationId, categoryId);
         return productRepository.findByKeyOrganizationIdAndCategoryId(organizationId, categoryId);
@@ -78,22 +96,22 @@ public class MockProductController {
             @PathVariable UUID organizationId,
             @PathVariable UUID productId,
             @RequestBody CreateProductRequest request) {
-        
+
         ProductKey key = new ProductKey(organizationId, productId);
         log.warn("[MOCK-CONTROLLER] Mise à jour du produit avec la clé {}. Données reçues : {}", key, request);
 
         return productRepository.findById(key)
-            .flatMap(existingProduct -> {
-                log.info("Produit existant trouvé : {}", existingProduct);
-                updateProductFromRequest(existingProduct, request);
-                log.info("Produit après mise à jour (avant sauvegarde) : {}", existingProduct);
-                return productRepository.save(existingProduct);
-            })
-            .map(savedProduct -> {
-                log.info("Produit sauvegardé avec succès : {}", savedProduct);
-                return ResponseEntity.ok(savedProduct);
-            })
-            .defaultIfEmpty(ResponseEntity.notFound().build());
+                .flatMap(existingProduct -> {
+                    log.info("Produit existant trouvé : {}", existingProduct);
+                    updateProductFromRequest(existingProduct, request);
+                    log.info("Produit après mise à jour (avant sauvegarde) : {}", existingProduct);
+                    return productRepository.save(existingProduct);
+                })
+                .map(savedProduct -> {
+                    log.info("Produit sauvegardé avec succès : {}", savedProduct);
+                    return ResponseEntity.ok(savedProduct);
+                })
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
     /**
@@ -103,7 +121,7 @@ public class MockProductController {
     public Mono<ResponseEntity<Void>> deleteProduct(
             @PathVariable UUID organizationId,
             @PathVariable UUID productId) {
-            
+
         ProductKey key = new ProductKey(organizationId, productId);
         log.warn("[MOCK-CONTROLLER] Suppression du produit avec la clé {}", key);
 
@@ -120,11 +138,11 @@ public class MockProductController {
         product.setName(request.getName());
         product.setDefaultSellPrice(request.getDefaultSellPrice());
         product.setShortDescription(request.getShortDescription());
-        
+
         if (request.getCategoryId() != null) {
             product.setCategoryId(request.getCategoryId());
         }
-        
+
         product.setIsActive(request.getIsActive());
         product.setPickupLocation(request.getPickupLocation());
         product.setDropoffLocation(request.getDropoffLocation());
@@ -139,7 +157,10 @@ public class MockProductController {
         product.setStatus(request.getStatus());
         product.setClientPhoneNumber(request.getClientPhoneNumber());
         product.setClientProfileImageUrl(request.getClientProfileImageUrl());
-        product.setBaggageInfo(request.getBaggageInfo()); 
+        product.setBaggageInfo(request.getBaggageInfo());
         product.setMetadata(request.getMetadata());
+        // L'ID ne peut pas être mis à jour directement ici car il fait partie de la clé
+        // primaire.
+        // Il est géré par la logique `key = new ProductKey(...)` plus haut.
     }
 }

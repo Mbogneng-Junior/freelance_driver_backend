@@ -23,4 +23,5 @@ public class NotificationRequest {
 
     // Pour les variables Thymeleaf
     private Map<String, String> metadata;
+    private Map<String, String> data;
 }
