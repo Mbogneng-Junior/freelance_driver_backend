@@ -1,5 +1,5 @@
 Project Context From: /home/mbogneng-junior/freelance-driver (Copie)/backend
-Generated On: ven. 12 sept. 2025 12:46:37 WAT
+Generated On: sam. 20 sept. 2025 17:23:32 WAT
 ===============================================
 Ignored Directory Patterns: .* node_modules vendor build dist target __pycache__ .next cache target storage
 Ignored File Patterns: *.log *.jar *.pdf *.class *.sqlite project_context.txt package-lock.json yarn.lock composer.lock *.ico pnpm-lock.yaml
@@ -1799,6 +1799,8 @@ TEMPLATE_EMAIL_OTP_ID=99f0fa9f-80bd-4e54-8385-a3e0dee99770
 TEMPLATE_PUSH_NEW_PLANNING_ID=c4af6e04-2dd8-4e58-9895-140cf3f6fa96
 TEMPLATE_PUSH_NEW_ANNOUNCEMENT_ID=d77bd848-e94c-4a6d-985c-e1d7688928d6
 TEMPLATE_PUSH_ANNOUNCEMENT_ACCEPTED_ID=1a7b8f5c-2d3e-4f6a-8b9c-0a1b2c3d4e5f
+TEMPLATE_PUSH_ANNOUNCEMENT_CONFIRMED_ID=4a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
+TEMPLATE_PUSH_POSTULATION_CANCELLED_ID=b1c2d3e4-f5a6-7b8c-9d0e-1f2a3b4c5d6e
 // END OF FILE: .env
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/.gitattributes
@@ -3259,18 +3261,17 @@ public class DotenvConfig {
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/FirebaseConfig.java
 
-// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/FirebaseConfig.java
-
 package com.freelance.driver_backend.config;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
-import com.google.firebase.messaging.FirebaseMessaging; // <-- CET IMPORT EST CRUCIAL
+import com.google.firebase.messaging.FirebaseMessaging; 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.beans.factory.annotation.Value; 
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -3279,47 +3280,36 @@ import java.io.InputStream;
 @Slf4j
 public class FirebaseConfig {
 
-    /**
-     * Ce @Bean lit votre fichier firebase-service-account-key.example,
-     * initialise le SDK Admin de Firebase, et retourne l'objet FirebaseApp.
-     * Spring mettra cet objet à disposition de tous les autres composants qui en ont besoin.
-     * @return L'instance initialisée de FirebaseApp.
-     * @throws IOException Si le fichier de clé n'est pas trouvé.
-     */
+    // NOUVELLE INJECTION : ID du projet Firebase pour les notifications
+    @Value("${freelancedriver.firebase.project-id}") 
+    private String firebaseProjectId;
+
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
-        // On vérifie s'il n'a pas déjà été initialisé (utile pour les rechargements à chaud)
         if (FirebaseApp.getApps().isEmpty()) {
             log.info("Initialisation du SDK Admin de Firebase...");
-
-            // On charge le fichier de clé depuis le dossier src/main/resources
-            ClassPathResource resource = new ClassPathResource("firebase-service-account-key.example");
+            ClassPathResource resource = new ClassPathResource("firebase-service-account-key.json");
             if (!resource.exists()) {
-                log.error("Le fichier 'firebase-service-account-key.example' est introuvable dans src/main/resources/");
-                throw new IOException("Le fichier firebase-service-account-key.example est introuvable.");
+                log.error("Le fichier 'firebase-service-account-key.json' est introuvable dans src/main/resources/");
+                throw new IOException("Le fichier firebase-service-account-key.json est introuvable.");
             }
 
             try (InputStream serviceAccount = resource.getInputStream()) {
                 FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                    .setProjectId(firebaseProjectId) // <-- UTILISE LE NOUVEAU NOM
                     .build();
 
                 FirebaseApp app = FirebaseApp.initializeApp(options);
                 log.info("✅ SDK Admin de Firebase initialisé avec succès pour le projet : {}", app.getName());
-                return app;
+                return app; 
             }
         } else {
             log.warn("Le SDK Admin de Firebase est déjà initialisé. Récupération de l'instance existante.");
-            return FirebaseApp.getInstance();
+            return FirebaseApp.getInstance(); 
         }
     }
 
-    /**
-     * Ce @Bean crée et fournit l'instance de FirebaseMessaging, qui est
-     * utilisée pour envoyer des notifications. Il dépend du bean FirebaseApp.
-     * @param firebaseApp L'instance initialisée par le bean ci-dessus.
-     * @return L'instance de FirebaseMessaging.
-     */
     @Bean
     public FirebaseMessaging firebaseMessaging(FirebaseApp firebaseApp) {
         return FirebaseMessaging.getInstance(firebaseApp);
@@ -3517,7 +3507,6 @@ import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
-
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
@@ -3535,25 +3524,42 @@ public class WebClientConfig {
 
     @Value("${server.port}")
     private String localServerPort;
-    
+
     @Value("${microservices.resource-service.url}")
     private String resourceServiceUrl;
 
+    @Value("${microservices.media-service.url}") // URL du service de médias, nouvellement ajoutée
+    private String mediaServiceUrl;
+
     /**
-     * Crée un HttpClient réutilisable avec des timeouts et une configuration de connexion robustes.
+     * Crée un HttpClient réutilisable avec des timeouts standards.
+     * 
      * @return HttpClient configuré
      */
     private HttpClient createConfiguredHttpClient() {
         return HttpClient.create()
-                // Timeout pour établir la connexion initiale (incluant le handshake SSL)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 20000) // 20 secondes
-                // Timeout global pour recevoir une réponse après l'envoi de la requête
-                .responseTimeout(Duration.ofSeconds(20))
-                .doOnConnected(conn ->
-                        conn.addHandlerLast(new ReadTimeoutHandler(20, TimeUnit.SECONDS))
-                            .addHandlerLast(new WriteTimeoutHandler(20, TimeUnit.SECONDS)));
+                .responseTimeout(Duration.ofSeconds(20)) // 20 secondes
+                .doOnConnected(conn -> conn.addHandlerLast(new ReadTimeoutHandler(20, TimeUnit.SECONDS))
+                        .addHandlerLast(new WriteTimeoutHandler(20, TimeUnit.SECONDS)));
     }
-    
+
+    /**
+     * Crée un HttpClient configuré avec des timeouts plus longs pour les opérations
+     * de média.
+     * Les téléversements de fichiers peuvent prendre plus de temps.
+     * 
+     * @return HttpClient configuré pour les médias
+     */
+    private HttpClient createMediaServiceHttpClient() {
+        return HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000) // 30 secondes pour la connexion
+                .responseTimeout(Duration.ofSeconds(60)) // 60 secondes pour la réponse complète
+                .doOnConnected(conn -> conn.addHandlerLast(new ReadTimeoutHandler(60, TimeUnit.SECONDS)) // 60s read
+                                                                                                         // timeout
+                        .addHandlerLast(new WriteTimeoutHandler(60, TimeUnit.SECONDS))); // 60s write timeout
+    }
+
     @Bean
     @Qualifier("authServiceWebClient")
     public WebClient authServiceWebClient() {
@@ -3564,18 +3570,16 @@ public class WebClientConfig {
                 .build();
     }
 
-    // --- MODIFICATION IMPORTANTE ICI ---
     @Bean
     @Qualifier("organisationServiceWebClient")
     public WebClient organisationServiceWebClient() {
-        // On utilise la même configuration robuste pour le service d'organisation
         return WebClient.builder()
                 .baseUrl(organisationServiceUrl)
-                .clientConnector(new ReactorClientHttpConnector(createConfiguredHttpClient())) // <-- On applique la config
+                .clientConnector(new ReactorClientHttpConnector(createConfiguredHttpClient()))
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
-    
+
     @Bean
     @Qualifier("chatServiceWebClient")
     public WebClient chatServiceWebClient() {
@@ -3586,19 +3590,37 @@ public class WebClientConfig {
                 .build();
     }
 
-
     @Bean
     @Qualifier("localApiWebClient")
     public WebClient localApiWebClient() {
         return WebClient.builder().baseUrl("http://localhost:" + localServerPort).build();
     }
-    
+
     @Bean
     @Qualifier("externalResourceWebClient")
     public WebClient externalResourceWebClient() {
         return WebClient.builder().baseUrl(resourceServiceUrl).build();
     }
-}// END OF FILE: src/main/java/com/freelance/driver_backend/config/WebClientConfig.java
+
+    /**
+     * Crée un WebClient pour interagir avec le service de médias externe.
+     * Utilise des timeouts plus longs pour les opérations de fichiers.
+     * 
+     * @return WebClient configuré pour le service de médias
+     */
+    @Bean
+    @Qualifier("externalMediaServiceWebClient")
+    public WebClient externalMediaServiceWebClient() {
+        return WebClient.builder()
+                .baseUrl(mediaServiceUrl)
+                .clientConnector(new ReactorClientHttpConnector(createMediaServiceHttpClient()))
+                // Le Content-Type est défini par BodyInserters.fromMultipartData() pour les
+                // uploads de fichiers
+                .build();
+    }
+
+}
+// END OF FILE: src/main/java/com/freelance/driver_backend/config/WebClientConfig.java
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/AddressController.java
 
@@ -3942,11 +3964,13 @@ public class AddressController {
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/AnnouncementController.java
 
+/* 
 
-/*package com.freelance.driver_backend.controller;
+package com.freelance.driver_backend.controller;
 
 import com.corundumstudio.socketio.SocketIOServer;
 import com.freelance.driver_backend.dto.CreateProductRequest;
+import com.freelance.driver_backend.dto.UserSessionContextDto;
 import com.freelance.driver_backend.model.ClientProfile;
 import com.freelance.driver_backend.model.DriverProfile;
 import com.freelance.driver_backend.model.Product;
@@ -3974,15 +3998,17 @@ import java.util.UUID;
 @Slf4j
 public class AnnouncementController {
 
+
     private final ResourceService resourceService;
     private final ProfileService profileService;
     private final ProductRepository productRepository; 
     private final NotificationTriggerService notificationTriggerService;
     private final SocketIOServer socketIOServer; 
 
+
     private static final UUID ANNOUNCEMENT_CATEGORY_ID = UUID.fromString("c1a5b4e0-1234-5678-9abc-def012345678");
 
-    
+   
     @GetMapping
     public Flux<Product> getPublishedAnnouncements() {
         log.info("Controller: Requête publique pour récupérer les annonces publiées.");
@@ -3994,12 +4020,16 @@ public class AnnouncementController {
     
     @GetMapping("/my-announcements")
     public Flux<Product> getMyAnnouncements(
-            @AuthenticationPrincipal Mono<Jwt> jwtMono) {
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) { 
         return jwtMono
-            .map(JwtUtil::getUserIdFromToken)
-            .flatMapMany(clientId -> 
-                productRepository.findByClientIdAndCategoryId(clientId, ANNOUNCEMENT_CATEGORY_ID)
-            );
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMapMany(userContext -> {
+                if (userContext.getClientProfile() == null) {
+                     return Flux.error(new IllegalStateException("L'utilisateur n'est pas un client."));
+                }
+                return productRepository.findByClientIdAndCategoryId(userContext.getUserId(), ANNOUNCEMENT_CATEGORY_ID);
+            });
     }
 
     
@@ -4012,12 +4042,14 @@ public class AnnouncementController {
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMap(userContext -> {
-                // MODIFIÉ : Vérifie directement si le clientProfile existe dans le contexte
                 if (userContext.getClientProfile() == null) {
                     return Mono.error(new IllegalStateException("Seul un client peut créer une annonce."));
                 }
-                ClientProfile clientProfile = userContext.getClientProfile(); // Récupère le profil du client réel
-
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour créer une annonce (organisation manquante)."));
+                }
+                ClientProfile clientProfile = userContext.getClientProfile(); 
+                
                 request.setCategoryId(ANNOUNCEMENT_CATEGORY_ID);
                 request.setClientId(clientProfile.getUserId());
                 request.setClientName(clientProfile.getFirstName() + " " + clientProfile.getLastName());
@@ -4040,8 +4072,20 @@ public class AnnouncementController {
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMap(userContext -> {
-                // (Ajouter une vérification pour s'assurer que le client est bien le propriétaire de l'annonce)
-                return resourceService.updateProduct(userContext.getOrganisation().getOrganizationId(), productId, request, authorizationHeader, null);
+                if (userContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les clients peuvent modifier leurs annonces."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour mettre à jour une annonce (organisation manquante)."));
+                }
+                ClientProfile clientProfile = userContext.getClientProfile();
+
+                return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), productId))
+                        .filter(product -> clientProfile.getUserId().equals(product.getClientId()))
+                        .switchIfEmpty(Mono.error(new SecurityException("Le client n'est pas autorisé à modifier cette annonce ou elle n'existe pas.")))
+                        .flatMap(existingAnnouncement -> {
+                            return resourceService.updateProduct(userContext.getOrganisation().getOrganizationId(), productId, request, authorizationHeader, null);
+                        });
             })
             .doOnSuccess(updatedAnnouncement -> {
                 if (updatedAnnouncement != null) {
@@ -4061,15 +4105,28 @@ public class AnnouncementController {
 
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
-            .flatMap(userContext -> 
-                resourceService.deleteProduct(userContext.getOrganisation().getOrganizationId(), productId, authorizationHeader, null)
-            )
+            .flatMap(userContext -> {
+                if (userContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les clients peuvent supprimer leurs annonces."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour supprimer une annonce (organisation manquante)."));
+                }
+                ClientProfile clientProfile = userContext.getClientProfile();
+
+                return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), productId))
+                        .filter(product -> clientProfile.getUserId().equals(product.getClientId()))
+                        .switchIfEmpty(Mono.error(new SecurityException("Le client n'est pas autorisé à supprimer cette annonce ou elle n'existe pas.")))
+                        .flatMap(existingAnnouncement ->
+                            resourceService.deleteProduct(userContext.getOrganisation().getOrganizationId(), productId, authorizationHeader, null)
+                        );
+            })
             .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT)));
     }
 
-    
-    @PostMapping("/{announcementId}/accept")
-    public Mono<ResponseEntity<Product>> acceptAnnouncement(
+  
+    @PostMapping("/{announcementId}/apply")
+    public Mono<ResponseEntity<Product>> applyToAnnouncement(
             @PathVariable UUID announcementId,
             @AuthenticationPrincipal Mono<Jwt> jwtMono,
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -4077,26 +4134,75 @@ public class AnnouncementController {
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMap(driverContext -> {
-                if (!(driverContext.getProfile() instanceof DriverProfile driverProfile)) {
-                    return Mono.error(new IllegalStateException("Seul un chauffeur peut accepter une annonce."));
+                if (driverContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un chauffeur peut postuler à une annonce."));
                 }
-                // L'ID de l'organisation doit être récupéré du contexte du client qui a posté l'annonce.
-                // Pour ce faire, on doit d'abord trouver l'annonce.
+                DriverProfile driverProfile = driverContext.getDriverProfile();
+                
                 return productRepository.findAll().filter(p -> p.getId().equals(announcementId)).next()
                     .flatMap(announcement -> {
                          ProductKey key = new ProductKey(announcement.getOrganizationId(), announcementId);
                          return productRepository.findById(key)
                             .flatMap(ann -> {
                                 if (ann.getReservedByDriverId() != null) {
-                                    return Mono.error(new IllegalStateException("Cette annonce a déjà été réservée."));
+                                    return Mono.error(new IllegalStateException("Cette annonce a déjà été postulée/réservée."));
                                 }
                                 ann.setReservedByDriverId(driverProfile.getUserId());
                                 ann.setReservedByDriverName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
-                                ann.setStatus("Confirmed");
+                                ann.setStatus("PendingConfirmation");
+                                log.info("Chauffeur {} a postulé pour l'annonce {}. Statut mis à jour à 'PendingConfirmation'.", driverProfile.getUserId(), announcementId);
                                 return productRepository.save(ann);
                             })
                             .flatMap(updatedAnnouncement -> {
                                 socketIOServer.getBroadcastOperations().sendEvent("updated_announcement", updatedAnnouncement);
+                                log.info("Déclenchement de la notification pour le client de l'annonce {} (postulation par chauffeur {}).", announcementId, driverProfile.getUserId());
+                                return notificationTriggerService.notifyClientOfAcceptedAnnouncement(updatedAnnouncement, driverProfile)
+                                    .thenReturn(updatedAnnouncement);
+                            });
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+   
+    @PostMapping("/{announcementId}/cancel-postulation") // <-- NOUVEL ENDPOINT POUR L'ANNULATION
+    public Mono<ResponseEntity<Product>> cancelPostulation(
+            @PathVariable UUID announcementId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(driverContext -> {
+                if (driverContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un chauffeur peut annuler une postulation."));
+                }
+                DriverProfile driverProfile = driverContext.getDriverProfile();
+
+                return productRepository.findAll().filter(p -> p.getId().equals(announcementId)).next()
+                    .flatMap(announcement -> {
+                        // Vérifier si le chauffeur est bien celui qui a postulé et si le statut est "PendingConfirmation" ou "Ongoing"
+                        if (!driverProfile.getUserId().equals(announcement.getReservedByDriverId())) {
+                            return Mono.error(new SecurityException("Vous n'avez pas postulé à cette annonce ou n'êtes pas le chauffeur concerné."));
+                        }
+                        if (!"PendingConfirmation".equalsIgnoreCase(announcement.getStatus()) && !"Ongoing".equalsIgnoreCase(announcement.getStatus())) {
+                            return Mono.error(new IllegalStateException("L'annonce n'est pas dans un état permettant l'annulation de postulation (statut actuel: " + announcement.getStatus() + ")."));
+                        }
+
+                        ProductKey key = new ProductKey(announcement.getOrganizationId(), announcementId);
+                        return productRepository.findById(key)
+                            .flatMap(ann -> {
+                                ann.setReservedByDriverId(null);
+                                ann.setReservedByDriverName(null);
+                                ann.setStatus("Published"); // Revenir au statut "Published"
+                                log.info("Chauffeur {} a annulé sa postulation pour l'annonce {}. Statut remis à 'Published'.", driverProfile.getUserId(), announcementId);
+                                return productRepository.save(ann);
+                            })
+                            .flatMap(updatedAnnouncement -> {
+                                socketIOServer.getBroadcastOperations().sendEvent("updated_announcement", updatedAnnouncement);
+                                log.info("Déclenchement de la notification pour le client de l'annonce {} (annulation de postulation par chauffeur {}).", announcementId, driverProfile.getUserId());
+                                // Remplacez la ligne suivante par la méthode correcte de notification
                                 return notificationTriggerService.notifyClientOfAcceptedAnnouncement(updatedAnnouncement, driverProfile)
                                     .thenReturn(updatedAnnouncement);
                             });
@@ -4107,22 +4213,76 @@ public class AnnouncementController {
     }
 
     
-    @GetMapping("/my-rides")
-    public Flux<Product> getMyAcceptedRides(@AuthenticationPrincipal Mono<Jwt> jwtMono) {
+    @PostMapping("/{announcementId}/confirm")
+    public Mono<ResponseEntity<Product>> confirmDriverForAnnouncement(
+            @PathVariable UUID announcementId,
+            @RequestParam UUID driverId, 
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
         return jwtMono
-            .map(JwtUtil::getUserIdFromToken)
-            .flatMapMany(driverId -> {
-                log.info("Récupération des courses acceptées par le chauffeur {}", driverId);
-                return productRepository.findByReservedByDriverId(driverId);
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(clientContext -> {
+                if (clientContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un client peut confirmer un chauffeur pour son annonce."));
+                }
+                ClientProfile clientProfile = clientContext.getClientProfile();
+
+                return productRepository.findAll().filter(p -> p.getId().equals(announcementId)).next()
+                    .flatMap(announcement -> {
+                        if (!announcement.getClientId().equals(clientProfile.getUserId())) {
+                            return Mono.error(new SecurityException("Le client n'est pas l'auteur de cette annonce."));
+                        }
+                        if (!"PendingConfirmation".equalsIgnoreCase(announcement.getStatus()) || !announcement.getReservedByDriverId().equals(driverId)) {
+                             return Mono.error(new IllegalStateException("Cette annonce n'est pas en attente de confirmation pour ce chauffeur, ou le statut est incorrect."));
+                        }
+
+                        ProductKey key = new ProductKey(announcement.getOrganizationId(), announcementId);
+                        return productRepository.findById(key)
+                            .flatMap(ann -> {
+                                ann.setStatus("Ongoing");
+                                log.info("Client {} a confirmé le chauffeur {} pour l'annonce {}. Statut mis à jour à 'Ongoing'.", clientProfile.getUserId(), driverId, announcementId);
+                                return productRepository.save(ann);
+                            })
+                            .flatMap(updatedAnnouncement -> 
+                                profileService.findDriverById(driverId)
+                                    .flatMap(driverProfile -> notificationTriggerService.notifyDriverOfConfirmedAnnouncement(updatedAnnouncement, driverProfile))
+                                    .thenReturn(updatedAnnouncement)
+                            );
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/my-rides")
+    public Flux<Product> getMyAcceptedRides(@AuthenticationPrincipal Mono<Jwt> jwtMono,
+                                            @RequestHeader("Authorization") String authorizationHeader) {
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMapMany(userContext -> {
+                 if (userContext.getDriverProfile() == null) {
+                     return Flux.error(new IllegalStateException("L'utilisateur n'est pas un chauffeur."));
+                }
+                UUID driverId = userContext.getUserId();
+                log.info("Récupération des courses acceptées/postulées par le chauffeur {}", driverId);
+                
+                return productRepository.findByReservedByDriverId(driverId) // Récupère les produits où ce driver est réservé
+                           .flatMap(this::enrichProductWithAuthorDetails) // <-- AJOUT CRUCIAL : Enrichir avec les détails du CLIENT auteur
+                           .doOnNext(product -> {
+                               // Debugging log pour voir les produits enrichis avant de les envoyer
+                               log.info("DEBUG: getMyAcceptedRides - Produit enrichi pour driver {}: Title='{}', AuthorName='{}', Cost={}", 
+                                        driverId, product.getName(), product.getAuthorName(), product.getDefaultSellPrice());
+                           });
             });
     }
 
-   
+
+  
     private Mono<Product> enrichProductWithAuthorDetails(Product product) {
-        // On suppose que product.getClientId() contient l'ID du client
         UUID authorId = product.getClientId();
         if (authorId == null) {
-            return Mono.just(product); // Retourne le produit tel quel si pas d'auteur
+            return Mono.just(product);
         }
 
         return profileService.findClientById(authorId)
@@ -4133,19 +4293,16 @@ public class AnnouncementController {
                 product.setAuthorProfileImageUrl(clientProfile.getProfileImageUrl());
                 return product;
             })
-            .defaultIfEmpty(product); // Si le client n'est pas trouvé, retourne le produit original
+            .defaultIfEmpty(product); 
     }
 }
-
 */
-
-// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/AnnouncementController.java
 
 package com.freelance.driver_backend.controller;
 
 import com.corundumstudio.socketio.SocketIOServer;
 import com.freelance.driver_backend.dto.CreateProductRequest;
-import com.freelance.driver_backend.dto.UserSessionContextDto; // Importez la nouvelle structure
+import com.freelance.driver_backend.dto.UserSessionContextDto;
 import com.freelance.driver_backend.model.ClientProfile;
 import com.freelance.driver_backend.model.DriverProfile;
 import com.freelance.driver_backend.model.Product;
@@ -4198,7 +4355,7 @@ public class AnnouncementController {
     @GetMapping("/my-announcements")
     public Flux<Product> getMyAnnouncements(
             @AuthenticationPrincipal Mono<Jwt> jwtMono,
-            @RequestHeader("Authorization") String authorizationHeader) { // Ajout de l'Authorization header pour getUserSessionContext
+            @RequestHeader("Authorization") String authorizationHeader) { 
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMapMany(userContext -> {
@@ -4221,14 +4378,13 @@ public class AnnouncementController {
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMap(userContext -> {
-                // MODIFIÉ : Vérifie directement si le clientProfile existe dans le contexte
                 if (userContext.getClientProfile() == null) {
                     return Mono.error(new IllegalStateException("Seul un client peut créer une annonce."));
                 }
                 if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
                     return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour créer une annonce (organisation manquante)."));
                 }
-                ClientProfile clientProfile = userContext.getClientProfile(); // Récupère le profil du client réel
+                ClientProfile clientProfile = userContext.getClientProfile(); 
                 
                 request.setCategoryId(ANNOUNCEMENT_CATEGORY_ID);
                 request.setClientId(clientProfile.getUserId());
@@ -4262,7 +4418,6 @@ public class AnnouncementController {
                 }
                 ClientProfile clientProfile = userContext.getClientProfile();
 
-                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire de l'annonce ?
                 return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), productId))
                         .filter(product -> clientProfile.getUserId().equals(product.getClientId()))
                         .switchIfEmpty(Mono.error(new SecurityException("Le client n'est pas autorisé à modifier cette annonce ou elle n'existe pas.")))
@@ -4299,7 +4454,6 @@ public class AnnouncementController {
                 }
                 ClientProfile clientProfile = userContext.getClientProfile();
 
-                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire de l'annonce ?
                 return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), productId))
                         .filter(product -> clientProfile.getUserId().equals(product.getClientId()))
                         .switchIfEmpty(Mono.error(new SecurityException("Le client n'est pas autorisé à supprimer cette annonce ou elle n'existe pas.")))
@@ -4311,10 +4465,11 @@ public class AnnouncementController {
     }
 
     /**
-     * SECURISE (CONDUCTEUR): Permet à un conducteur d'accepter une annonce.
+     * SECURISE (CONDUCTEUR): Permet à un conducteur de POSTULER à une annonce.
+     * Le statut de l'annonce passe à "PendingConfirmation". Une notification est envoyée au client.
      */
-    @PostMapping("/{announcementId}/accept")
-    public Mono<ResponseEntity<Product>> acceptAnnouncement(
+    @PostMapping("/{announcementId}/apply")
+    public Mono<ResponseEntity<Product>> applyToAnnouncement(
             @PathVariable UUID announcementId,
             @AuthenticationPrincipal Mono<Jwt> jwtMono,
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -4322,32 +4477,125 @@ public class AnnouncementController {
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMap(driverContext -> {
-                // MODIFIÉ : Vérifie directement si le driverProfile existe dans le contexte
                 if (driverContext.getDriverProfile() == null) {
-                    return Mono.error(new IllegalStateException("Seul un chauffeur peut accepter une annonce."));
+                    return Mono.error(new IllegalStateException("Seul un chauffeur peut postuler à une annonce."));
                 }
-                DriverProfile driverProfile = driverContext.getDriverProfile(); // Récupère le profil du chauffeur réel
+                DriverProfile driverProfile = driverContext.getDriverProfile();
                 
-                // L'ID de l'organisation doit être récupéré du contexte du client qui a posté l'annonce.
-                // Pour ce faire, on doit d'abord trouver l'annonce.
                 return productRepository.findAll().filter(p -> p.getId().equals(announcementId)).next()
                     .flatMap(announcement -> {
                          ProductKey key = new ProductKey(announcement.getOrganizationId(), announcementId);
                          return productRepository.findById(key)
                             .flatMap(ann -> {
                                 if (ann.getReservedByDriverId() != null) {
-                                    return Mono.error(new IllegalStateException("Cette annonce a déjà été réservée."));
+                                    return Mono.error(new IllegalStateException("Cette annonce a déjà été postulée/réservée."));
                                 }
                                 ann.setReservedByDriverId(driverProfile.getUserId());
                                 ann.setReservedByDriverName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
-                                ann.setStatus("Confirmed");
+                                ann.setStatus("PendingConfirmation");
+                                log.info("Chauffeur {} a postulé pour l'annonce {}. Statut mis à jour à 'PendingConfirmation'.", driverProfile.getUserId(), announcementId);
                                 return productRepository.save(ann);
                             })
                             .flatMap(updatedAnnouncement -> {
                                 socketIOServer.getBroadcastOperations().sendEvent("updated_announcement", updatedAnnouncement);
+                                log.info("Déclenchement de la notification pour le client de l'annonce {} (postulation par chauffeur {}).", announcementId, driverProfile.getUserId());
                                 return notificationTriggerService.notifyClientOfAcceptedAnnouncement(updatedAnnouncement, driverProfile)
                                     .thenReturn(updatedAnnouncement);
                             });
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Permet à un CONDUCTEUR d'annuler une postulation.
+     * Le statut de l'annonce revient à "Published". Une notification est envoyée au client.
+     */
+    @PostMapping("/{announcementId}/cancel-postulation") // <-- NOUVEL ENDPOINT POUR L'ANNULATION
+    public Mono<ResponseEntity<Product>> cancelPostulation(
+            @PathVariable UUID announcementId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(driverContext -> {
+                if (driverContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un chauffeur peut annuler une postulation."));
+                }
+                DriverProfile driverProfile = driverContext.getDriverProfile();
+
+                return productRepository.findAll().filter(p -> p.getId().equals(announcementId)).next()
+                    .flatMap(announcement -> {
+                        if (!driverProfile.getUserId().equals(announcement.getReservedByDriverId())) {
+                            return Mono.error(new SecurityException("Vous n'avez pas postulé à cette annonce ou n'êtes pas le chauffeur concerné."));
+                        }
+                        if (!"PendingConfirmation".equalsIgnoreCase(announcement.getStatus()) && !"Ongoing".equalsIgnoreCase(announcement.getStatus())) {
+                            return Mono.error(new IllegalStateException("L'annonce n'est pas dans un état permettant l'annulation de postulation (statut actuel: " + announcement.getStatus() + ")."));
+                        }
+
+                        ProductKey key = new ProductKey(announcement.getOrganizationId(), announcementId);
+                        return productRepository.findById(key)
+                            .flatMap(ann -> {
+                                ann.setReservedByDriverId(null);
+                                ann.setReservedByDriverName(null);
+                                ann.setStatus("Published"); // Revenir au statut "Published"
+                                log.info("Chauffeur {} a annulé sa postulation pour l'annonce {}. Statut remis à 'Published'.", driverProfile.getUserId(), announcementId);
+                                return productRepository.save(ann);
+                            })
+                            .flatMap(updatedAnnouncement -> {
+                                socketIOServer.getBroadcastOperations().sendEvent("updated_announcement", updatedAnnouncement);
+                                log.info("Déclenchement de la notification pour le client de l'annonce {} (annulation de postulation par chauffeur {}).", announcementId, driverProfile.getUserId());
+                                return notificationTriggerService.notifyClientOfCancelledPostulation(updatedAnnouncement, driverProfile)
+                                    .thenReturn(updatedAnnouncement);
+                            });
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CLIENT): Permet au CLIENT de confirmer (accepter) un chauffeur qui a postulé à son annonce.
+     * Le statut de l'annonce passe à "Ongoing" et une notification est envoyée au chauffeur.
+     */
+    @PostMapping("/{announcementId}/confirm")
+    public Mono<ResponseEntity<Product>> confirmDriverForAnnouncement(
+            @PathVariable UUID announcementId,
+            @RequestParam UUID driverId, 
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(clientContext -> {
+                if (clientContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un client peut confirmer un chauffeur pour son annonce."));
+                }
+                ClientProfile clientProfile = clientContext.getClientProfile();
+
+                return productRepository.findAll().filter(p -> p.getId().equals(announcementId)).next()
+                    .flatMap(announcement -> {
+                        if (!announcement.getClientId().equals(clientProfile.getUserId())) {
+                            return Mono.error(new SecurityException("Le client n'est pas l'auteur de cette annonce."));
+                        }
+                        if (!"PendingConfirmation".equalsIgnoreCase(announcement.getStatus()) || !announcement.getReservedByDriverId().equals(driverId)) {
+                             return Mono.error(new IllegalStateException("Cette annonce n'est pas en attente de confirmation pour ce chauffeur, ou le statut est incorrect."));
+                        }
+
+                        ProductKey key = new ProductKey(announcement.getOrganizationId(), announcementId);
+                        return productRepository.findById(key)
+                            .flatMap(ann -> {
+                                ann.setStatus("Ongoing");
+                                log.info("Client {} a confirmé le chauffeur {} pour l'annonce {}. Statut mis à jour à 'Ongoing'.", clientProfile.getUserId(), driverId, announcementId);
+                                return productRepository.save(ann);
+                            })
+                            .flatMap(updatedAnnouncement -> 
+                                profileService.findDriverById(driverId)
+                                    .flatMap(driverProfile -> notificationTriggerService.notifyDriverOfConfirmedAnnouncement(updatedAnnouncement, driverProfile))
+                                    .thenReturn(updatedAnnouncement)
+                            );
                     });
             })
             .map(ResponseEntity::ok)
@@ -4366,22 +4614,30 @@ public class AnnouncementController {
                  if (userContext.getDriverProfile() == null) {
                      return Flux.error(new IllegalStateException("L'utilisateur n'est pas un chauffeur."));
                 }
-                log.info("Récupération des courses acceptées par le chauffeur {}", userContext.getUserId());
-                return productRepository.findByReservedByDriverId(userContext.getUserId());
+                UUID driverId = userContext.getUserId();
+                log.info("Récupération des courses acceptées/postulées par le chauffeur {}", driverId);
+                
+                return productRepository.findByReservedByDriverId(driverId)
+                           .flatMap(this::enrichProductWithAuthorDetails)
+                           .doOnNext(product -> {
+                               // Debugging log pour voir les produits enrichis avant de les envoyer
+                               log.info("DEBUG_BACKEND_OFFERS: Produit complet enrichi envoyé pour driver {}: Id='{}', Title='{}', AuthorName='{}', Cost={}, ReservedByDriverName='{}'", 
+                                        driverId, product.getId(), product.getName(), product.getAuthorName(), product.getDefaultSellPrice(), product.getReservedByDriverName());
+                           });
             });
     }
+
 
     /**
      * Méthode privée pour enrichir une annonce avec les détails de son auteur (client).
      */
     private Mono<Product> enrichProductWithAuthorDetails(Product product) {
-        // On suppose que product.getClientId() contient l'ID du client
         UUID authorId = product.getClientId();
         if (authorId == null) {
-            return Mono.just(product); // Retourne le produit tel quel si pas d'auteur
+            return Mono.just(product);
         }
 
-        return profileService.findClientById(authorId) // MODIFIÉ : Utilise findClientById
+        return profileService.findClientById(authorId)
             .map(clientProfile -> {
                 product.setAuthorId(clientProfile.getUserId());
                 product.setAuthorName(clientProfile.getFirstName() + " " + clientProfile.getLastName());
@@ -4389,7 +4645,7 @@ public class AnnouncementController {
                 product.setAuthorProfileImageUrl(clientProfile.getProfileImageUrl());
                 return product;
             })
-            .defaultIfEmpty(product); // Si le client n'est pas trouvé, retourne le produit original
+            .defaultIfEmpty(product); 
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/AnnouncementController.java
 
@@ -4922,13 +5178,15 @@ public class ExperienceController {
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/MediaController.java
 
-/* 
 package com.freelance.driver_backend.controller;
 
+import com.freelance.driver_backend.dto.external.UploadMediaResponse;
 import com.freelance.driver_backend.service.StorageService;
 import com.freelance.driver_backend.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+// Retirer cet import car publicKey n'est plus directement utilisé ici
+// import org.springframework.beans.factory.annotation.Value; 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
@@ -4948,11 +5206,16 @@ public class MediaController {
 
     private final StorageService storageService;
 
+    // Retirer ceci si ce n'est plus utilisé nulle part dans le contrôleur
+    // @Value("${freelancedriver.api.public-key}")
+    // private String publicKey;
+
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<ResponseEntity<Map<String, String>>> uploadFile(
             @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader, // Nous avons toujours besoin de cet en-tête pour le contrôleur lui-même pour vérifier l'utilisateur.
             @RequestPart("file") Mono<FilePart> filePartMono,
-            @RequestParam("type") String type,
+            @RequestParam("type") String frontendType,
             @RequestParam("resourceId") String resourceId) {
 
         return Mono.zip(jwtMono, filePartMono)
@@ -4960,89 +5223,28 @@ public class MediaController {
                 Jwt jwt = tuple.getT1();
                 FilePart filePart = tuple.getT2();
                 UUID userId = JwtUtil.getUserIdFromToken(jwt);
+                UUID targetResourceId = UUID.fromString(resourceId);
 
-                // Chemin de stockage structuré : {type}/{userId}/{resourceId}/{nom_fichier_unique}
-                // Ex: "vehicles/uuid-de-l-user/uuid-du-vehicule/fichier-aleatoire.jpg"
-                String basePath = String.format("%s/%s/%s", type, userId.toString(), resourceId);
+                log.info("▶️ Téléversement d'un fichier de type logique '{}' pour la ressource '{}' par l'utilisateur '{}'", frontendType, resourceId, userId);
 
-                log.info("▶️ Téléversement d'un fichier de type '{}' pour la ressource '{}' par l'utilisateur '{}'", type, resourceId, userId);
-
-                return storageService.saveFile(basePath, filePart.filename(), filePart)
-                    .map(fileUrl -> {
-                        log.info("✅ Fichier téléversé avec succès. URL: {}", fileUrl);
-                        return ResponseEntity.ok(Map.of("url", fileUrl));
-                    });
-            });
-    }
-}*/
-
-// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/MediaController.java
-
-package com.freelance.driver_backend.controller;
-
-import com.freelance.driver_backend.service.StorageService;
-import com.freelance.driver_backend.util.JwtUtil;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.codec.multipart.FilePart;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
-import reactor.core.publisher.Mono;
-
-import java.util.Map;
-import java.util.UUID;
-
-@RestController
-@RequestMapping("/api/media")
-@RequiredArgsConstructor
-@Slf4j
-public class MediaController {
-
-    private final StorageService storageService;
-
-    /**
-     * Endpoint générique et sécurisé pour téléverser des fichiers.
-     * Le chemin de stockage est structuré pour éviter les conflits et organiser les fichiers.
-     * @param jwtMono Le token JWT de l'utilisateur authentifié.
-     * @param filePartMono Le fichier envoyé par le client.
-     * @param type Le type de ressource (ex: "avatars", "vehicles", "documents").
-     * @param resourceId L'ID de la ressource à laquelle le fichier est associé (ex: ID du véhicule).
-     * @return Une réponse JSON contenant l'URL publique du fichier téléversé.
-     */
-    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<ResponseEntity<Map<String, String>>> uploadFile(
-            @AuthenticationPrincipal Mono<Jwt> jwtMono,
-            @RequestPart("file") Mono<FilePart> filePartMono,
-            @RequestParam("type") String type,
-            @RequestParam("resourceId") String resourceId) {
-
-        return Mono.zip(jwtMono, filePartMono)
-            .flatMap(tuple -> {
-                Jwt jwt = tuple.getT1();
-                FilePart filePart = tuple.getT2();
-                UUID userId = JwtUtil.getUserIdFromToken(jwt);
-
-                // Chemin de stockage structuré : {type}/{userId}/{resourceId}/{nom_fichier_unique}
-                // Ex: "vehicles/uuid-de-l-user/uuid-du-vehicule/fichier-aleatoire.jpg"
-                String basePath = String.format("%s/%s/%s", type, userId.toString(), resourceId);
-
-                log.info("▶️ Téléversement d'un fichier de type '{}' pour la ressource '{}' par l'utilisateur '{}'", type, resourceId, userId);
-
-                return storageService.saveFile(basePath, filePart.filename(), filePart)
-                    .map(fileUrl -> {
-                        log.info("✅ Fichier téléversé avec succès. URL: {}", fileUrl);
-                        return ResponseEntity.ok(Map.of("url", fileUrl));
-                    });
+                // Le StorageService s'occupera d'obtenir son propre token M2M
+                return storageService.saveFile(
+                    "product",
+                    frontendType,
+                    userId,
+                    targetResourceId,
+                    filePart.filename(),
+                    filePart
+                )
+                .map(uploadResponse -> {
+                    log.info("✅ Fichier téléversé avec succès. URL: {}, URI: {}", uploadResponse.getUrl(), uploadResponse.getUri());
+                    return ResponseEntity.ok(Map.of("url", uploadResponse.getUrl(), "uri", uploadResponse.getUri()));
+                });
             });
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/MediaController.java
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/MockProductController.java
-
-// src/main/java/com/freelance/driver_backend/controller/MockProductController.java
 
 package com.freelance.driver_backend.controller;
 
@@ -5061,9 +5263,6 @@ import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-
-
-
 @RestController
 @RequestMapping("/api/mock-products/{organizationId}")
 @RequiredArgsConstructor
@@ -5081,24 +5280,47 @@ public class MockProductController {
             @PathVariable UUID organizationId,
             @RequestBody CreateProductRequest request) {
 
-        log.warn("[MOCK-CONTROLLER] Création d'un produit pour l'organisation {}. Request reçue: {}", organizationId, request);
-        log.warn("[MOCK-CONTROLLER] Request details: clientId={}, categoryId={}, name={}", request.getClientId(), request.getCategoryId(), request.getName());
-
+        log.warn("[MOCK-CONTROLLER] Création d'un produit pour l'organisation {}. Request reçue: {}", organizationId,
+                request);
+        // AJOUT : Inclure l'ID de la requête dans les logs pour le diagnostic
+        log.warn("[MOCK-CONTROLLER] Request details: clientId={}, categoryId={}, name={}, requestedId={}",
+                request.getClientId(), request.getCategoryId(), request.getName(), request.getId());
 
         Product newProduct = new Product();
-        ProductKey key = new ProductKey(organizationId, UUID.randomUUID());
+        ProductKey key;
+
+        // --- CORRECTION : Utiliser l'ID fourni par le frontend si présent ---
+        if (request.getId() != null && !request.getId().isEmpty()) {
+            try {
+                // Tenter de convertir l'ID fourni en UUID
+                key = new ProductKey(organizationId, UUID.fromString(request.getId()));
+                log.warn("[MOCK-CONTROLLER] Création de produit avec ID fourni par le frontend: {}", request.getId());
+            } catch (IllegalArgumentException e) {
+                // Si l'ID fourni n'est pas un UUID valide, rejeter la requête
+                log.error("[MOCK-CONTROLLER] ID de produit fourni invalide par le frontend: {}", request.getId(), e);
+                return Mono.error(new IllegalArgumentException("L'ID de produit fourni par le frontend est invalide."));
+            }
+        } else {
+            // Si aucun ID n'est fourni, générer un nouvel UUID
+            key = new ProductKey(organizationId, UUID.randomUUID());
+            log.warn("[MOCK-CONTROLLER] Création de produit avec ID généré (aucun fourni): {}", key.getId());
+        }
         newProduct.setKey(key);
 
         // On utilise la méthode centralisée pour remplir l'objet
         updateProductFromRequest(newProduct, request);
 
-        log.warn("[MOCK-CONTROLLER] Objet Product construit avant sauvegarde: ID={}, OrgID={}, ClientID={}, CatID={}, Nom='{}'",
-                 newProduct.getId(), newProduct.getOrganizationId(), newProduct.getClientId(), newProduct.getCategoryId(), newProduct.getName());
+        log.warn(
+                "[MOCK-CONTROLLER] Objet Product construit avant sauvegarde: ID={}, OrgID={}, ClientID={}, CatID={}, Nom='{}'",
+                newProduct.getId(), newProduct.getOrganizationId(), newProduct.getClientId(),
+                newProduct.getCategoryId(), newProduct.getName());
 
         return productRepository.save(newProduct)
                 .map(savedProduct -> {
-                    log.warn("[MOCK-CONTROLLER] Produit sauvegardé avec succès. ID: {}, OrgID: {}, ClientID: {}, CatID: {}, Nom: '{}', Statut: '{}'",
-                             savedProduct.getId(), savedProduct.getOrganizationId(), savedProduct.getClientId(), savedProduct.getCategoryId(), savedProduct.getName(), savedProduct.getStatus());
+                    log.warn(
+                            "[MOCK-CONTROLLER] Produit sauvegardé avec succès. ID: {}, OrgID: {}, ClientID: {}, CatID: {}, Nom: '{}', Statut: '{}'",
+                            savedProduct.getId(), savedProduct.getOrganizationId(), savedProduct.getClientId(),
+                            savedProduct.getCategoryId(), savedProduct.getName(), savedProduct.getStatus());
                     return new ResponseEntity<>(savedProduct, HttpStatus.CREATED);
                 });
     }
@@ -5108,7 +5330,7 @@ public class MockProductController {
      */
     @GetMapping
     public Flux<Product> getProductsByCategory(
-            @PathVariable UUID organizationId, 
+            @PathVariable UUID organizationId,
             @RequestParam UUID categoryId) {
         log.warn("[MOCK-CONTROLLER] Récupération des produits pour org {} et catégorie {}", organizationId, categoryId);
         return productRepository.findByKeyOrganizationIdAndCategoryId(organizationId, categoryId);
@@ -5122,22 +5344,22 @@ public class MockProductController {
             @PathVariable UUID organizationId,
             @PathVariable UUID productId,
             @RequestBody CreateProductRequest request) {
-        
+
         ProductKey key = new ProductKey(organizationId, productId);
         log.warn("[MOCK-CONTROLLER] Mise à jour du produit avec la clé {}. Données reçues : {}", key, request);
 
         return productRepository.findById(key)
-            .flatMap(existingProduct -> {
-                log.info("Produit existant trouvé : {}", existingProduct);
-                updateProductFromRequest(existingProduct, request);
-                log.info("Produit après mise à jour (avant sauvegarde) : {}", existingProduct);
-                return productRepository.save(existingProduct);
-            })
-            .map(savedProduct -> {
-                log.info("Produit sauvegardé avec succès : {}", savedProduct);
-                return ResponseEntity.ok(savedProduct);
-            })
-            .defaultIfEmpty(ResponseEntity.notFound().build());
+                .flatMap(existingProduct -> {
+                    log.info("Produit existant trouvé : {}", existingProduct);
+                    updateProductFromRequest(existingProduct, request);
+                    log.info("Produit après mise à jour (avant sauvegarde) : {}", existingProduct);
+                    return productRepository.save(existingProduct);
+                })
+                .map(savedProduct -> {
+                    log.info("Produit sauvegardé avec succès : {}", savedProduct);
+                    return ResponseEntity.ok(savedProduct);
+                })
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
     /**
@@ -5147,7 +5369,7 @@ public class MockProductController {
     public Mono<ResponseEntity<Void>> deleteProduct(
             @PathVariable UUID organizationId,
             @PathVariable UUID productId) {
-            
+
         ProductKey key = new ProductKey(organizationId, productId);
         log.warn("[MOCK-CONTROLLER] Suppression du produit avec la clé {}", key);
 
@@ -5164,11 +5386,11 @@ public class MockProductController {
         product.setName(request.getName());
         product.setDefaultSellPrice(request.getDefaultSellPrice());
         product.setShortDescription(request.getShortDescription());
-        
+
         if (request.getCategoryId() != null) {
             product.setCategoryId(request.getCategoryId());
         }
-        
+
         product.setIsActive(request.getIsActive());
         product.setPickupLocation(request.getPickupLocation());
         product.setDropoffLocation(request.getDropoffLocation());
@@ -5183,8 +5405,11 @@ public class MockProductController {
         product.setStatus(request.getStatus());
         product.setClientPhoneNumber(request.getClientPhoneNumber());
         product.setClientProfileImageUrl(request.getClientProfileImageUrl());
-        product.setBaggageInfo(request.getBaggageInfo()); 
+        product.setBaggageInfo(request.getBaggageInfo());
         product.setMetadata(request.getMetadata());
+        // L'ID ne peut pas être mis à jour directement ici car il fait partie de la clé
+        // primaire.
+        // Il est géré par la logique `key = new ProductKey(...)` plus haut.
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/MockProductController.java
 
@@ -5982,6 +6207,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
@@ -6001,7 +6227,8 @@ public class ProfileController {
             @AuthenticationPrincipal Mono<Jwt> jwtMono,
             @RequestHeader("Authorization") String authorizationHeader) {
         return jwtMono
-                .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+                .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt),
+                        authorizationHeader, null))
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -6009,48 +6236,64 @@ public class ProfileController {
     /**
      * SECURISE: Met à jour le profil du conducteur actuellement connecté.
      * Vérifie que l'utilisateur a bien un profil chauffeur.
+     * // --- MODIFICATION ICI : Le type de retour du Mono ---
+     * 
+     * @return Le UserSessionContextDto complet et mis à jour.
      */
     @PutMapping("/driver/me")
-    public Mono<ResponseEntity<DriverProfile>> updateDriverProfile(
+    public Mono<ResponseEntity<UserSessionContextDto>> updateDriverProfile( // <-- CHANGEMENT DU TYPE DE RETOUR
             @AuthenticationPrincipal Mono<Jwt> jwtMono,
             @RequestBody DriverProfile updatedProfileData,
-            @RequestHeader("Authorization") String authorizationHeader) { // Ajout de l'header pour getUserSessionContext
+            @RequestHeader("Authorization") String authorizationHeader) {
         return jwtMono
-            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
-            .flatMap(userContext -> {
-                if (userContext.getDriverProfile() == null) {
-                    return Mono.error(new IllegalStateException("L'utilisateur n'est pas un chauffeur. Impossible de mettre à jour le profil chauffeur."));
-                }
-                UUID userId = userContext.getUserId();
-                return profileService.updateDriverProfile(userId, updatedProfileData);
-            })
-            .map(ResponseEntity::ok)
-            .defaultIfEmpty(ResponseEntity.notFound().build());
+                .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt),
+                        authorizationHeader, null))
+                .flatMap(userContext -> {
+                    if (userContext.getDriverProfile() == null) {
+                        return Mono.error(new IllegalStateException(
+                                "L'utilisateur n'est pas un chauffeur. Impossible de mettre à jour le profil chauffeur."));
+                    }
+                    UUID userId = userContext.getUserId();
+                    return profileService.updateDriverProfile(userId, updatedProfileData); // <--
+                                                                                           // profileService.updateDriverProfile
+                                                                                           // retourne
+                                                                                           // UserSessionContextDto
+                })
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
-    
+
     /**
      * SECURISE: Met à jour le profil du client actuellement connecté.
      * Vérifie que l'utilisateur a bien un profil client.
+     * // --- MODIFICATION ICI : Le type de retour du Mono ---
+     * 
+     * @return Le UserSessionContextDto complet et mis à jour.
      */
     @PutMapping("/client/me")
-    public Mono<ResponseEntity<ClientProfile>> updateClientProfile(
+    public Mono<ResponseEntity<UserSessionContextDto>> updateClientProfile( // <-- CHANGEMENT DU TYPE DE RETOUR
             @AuthenticationPrincipal Mono<Jwt> jwtMono,
             @RequestBody ClientProfile updatedProfileData,
-            @RequestHeader("Authorization") String authorizationHeader) { // Ajout de l'header pour getUserSessionContext
-        
+            @RequestHeader("Authorization") String authorizationHeader) {
+
         return jwtMono
-            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
-            .flatMap(userContext -> {
-                if (userContext.getClientProfile() == null) {
-                    return Mono.error(new IllegalStateException("L'utilisateur n'est pas un client. Impossible de mettre à jour le profil client."));
-                }
-                UUID userId = userContext.getUserId();
-                return profileService.updateClientProfile(userId, updatedProfileData);
-            })
-            .map(ResponseEntity::ok)
-            .defaultIfEmpty(ResponseEntity.notFound().build());
+                .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt),
+                        authorizationHeader, null))
+                .flatMap(userContext -> {
+                    if (userContext.getClientProfile() == null) {
+                        return Mono.error(new IllegalStateException(
+                                "L'utilisateur n'est pas un client. Impossible de mettre à jour le profil client."));
+                    }
+                    UUID userId = userContext.getUserId();
+                    return profileService.updateClientProfile(userId, updatedProfileData); // <--
+                                                                                           // profileService.updateClientProfile
+                                                                                           // retourne
+                                                                                           // UserSessionContextDto
+                })
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
     }
-    
+
     /**
      * PUBLIC: Récupère le profil public d'un utilisateur par son ID.
      * Retourne la nouvelle structure UserSessionContextDto.
@@ -6058,14 +6301,50 @@ public class ProfileController {
     @GetMapping("/user/{userId}")
     public Mono<ResponseEntity<UserSessionContextDto>> getPublicUserProfile(
             @PathVariable UUID userId,
-            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
-    ) {
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
         log.info("▶️ [ProfileController] Récupération du profil public pour l'ID: {}", userId);
         return profileService.getUserSessionContext(userId, authorizationHeader, null)
                 .map(ResponseEntity::ok)
                 .doOnSuccess(response -> log.info("✅ [ProfileController] Profil public de {} récupéré.", userId))
-                .doOnError(error -> log.error("❌ Erreur lors de la récupération du profil public pour {}: {}", userId, error.getMessage()))
+                .doOnError(error -> log.error("❌ Erreur lors de la récupération du profil public pour {}: {}", userId,
+                        error.getMessage()))
                 .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE: Met à jour l'URL de l'avatar pour l'utilisateur connecté.
+     * Cette route déclenche la mise à jour de TOUS les profils associés
+     * (Driver/Client)
+     * et la suppression de l'ancien avatar du stockage.
+     * 
+     * @param jwtMono             Le token JWT de l'utilisateur authentifié.
+     * @param requestPayload      Un Map contenant "profileImageUrl".
+     * @param authorizationHeader L'en-tête Authorization.
+     * @return Le UserSessionContextDto complet et mis à jour.
+     */
+    @PutMapping("/me/avatar")
+    public Mono<ResponseEntity<UserSessionContextDto>> updateMyAvatar(
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestBody Map<String, String> requestPayload,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        String newAvatarUrl = requestPayload.get("profileImageUrl");
+        if (newAvatarUrl == null || newAvatarUrl.isEmpty()) {
+            log.error("Requête de mise à jour de l'avatar avec une URL nulle ou vide.");
+            return Mono.just(ResponseEntity.badRequest().body(null));
+        }
+
+        return jwtMono
+                .flatMap(jwt -> {
+                    UUID userId = JwtUtil.getUserIdFromToken(jwt);
+                    log.info("Requête de mise à jour de l'avatar pour l'utilisateur ID: {} avec la nouvelle URL: {}",
+                            userId, newAvatarUrl);
+                    return profileService.updateAvatarUrl(userId, newAvatarUrl);
+                })
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build())
+                .doOnError(e -> log.error("❌ Erreur lors de la mise à jour de l'avatar de l'utilisateur: {}",
+                        e.getMessage(), e));
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/ProfileController.java
 
@@ -6649,13 +6928,16 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * DTO (Data Transfer Object) universel pour la création et la mise à jour de "Produits".
- * Il regroupe tous les champs potentiels envoyés par le frontend pour différentes entités
+ * DTO (Data Transfer Object) universel pour la création et la mise à jour de
+ * "Produits".
+ * Il regroupe tous les champs potentiels envoyés par le frontend pour
+ * différentes entités
  * (Annonces, Plannings, Véhicules, Adresses, etc.).
  */
 @Data
 public class CreateProductRequest {
-    
+    private String id; // L'ID du produit (UUID en string)
+
     // --- Champs Communs ---
     private String name;
     private String shortDescription;
@@ -6671,7 +6953,7 @@ public class CreateProductRequest {
     private String startTime;
     private String endDate;
     private String endTime;
-    
+
     // --- Champs d'Annonce Spécifiques ---
     private String baggageInfo;
     private boolean isNegotiable;
@@ -6683,12 +6965,13 @@ public class CreateProductRequest {
     private String clientPhoneNumber;
     private String clientProfileImageUrl;
 
-    // --- Champs Spécifiques au Planning (stockés dans metadata par le controller) ---
+    // --- Champs Spécifiques au Planning (stockés dans metadata par le controller)
+    // ---
     private String paymentOption;
     private BigDecimal regularAmount;
     private String discountPercentage;
     private BigDecimal discountedAmount;
-    
+
     // --- Stockage Flexible ---
     private Map<String, String> metadata;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/CreateProductRequest.java
@@ -6877,6 +7160,7 @@ public class NotificationRequest {
 
     // Pour les variables Thymeleaf
     private Map<String, String> metadata;
+    private Map<String, String> data;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/NotificationRequest.java
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/OAuthTokenResponse.java
@@ -7198,6 +7482,233 @@ public class UserSessionContextDto {
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/initializer/ApplicationInitializer.java
 
+/*package com.freelance.driver_backend.initializer;
+
+import com.freelance.driver_backend.model.DesignTemplate;
+import com.freelance.driver_backend.model.EmailTemplate;
+import com.freelance.driver_backend.model.FirebaseSetting;
+import com.freelance.driver_backend.model.PushTemplate;
+import com.freelance.driver_backend.model.SmtpSetting;
+import com.freelance.driver_backend.model.mock.MockOrganisation;
+import com.freelance.driver_backend.repository.DesignTemplateRepository;
+import com.freelance.driver_backend.repository.EmailTemplateRepository;
+import com.freelance.driver_backend.repository.FirebaseSettingRepository;
+import com.freelance.driver_backend.repository.PushTemplateRepository;
+import com.freelance.driver_backend.repository.SmtpSettingRepository;
+import com.freelance.driver_backend.repository.mock.MockOrganisationRepository;
+import io.github.cdimascio.dotenv.Dotenv;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.UUID;
+
+@Component
+@Profile({ "dev-resource-mock", "dev-mock" })
+@RequiredArgsConstructor
+@Slf4j
+public class ApplicationInitializer implements CommandLineRunner {
+
+    private final Dotenv dotenv;
+    @Value("${spring.mail.host}")
+    private String mailHost;
+    @Value("${spring.mail.port}")
+    private int mailPort;
+    @Value("${spring.mail.username}")
+    private String mailUsername;
+    @Value("${spring.mail.password}")
+    private String mailPassword;
+
+    private final MockOrganisationRepository mockOrganisationRepository;
+    private final SmtpSettingRepository smtpSettingRepository;
+    private final FirebaseSettingRepository firebaseSettingRepository;
+    private final DesignTemplateRepository designTemplateRepository;
+    private final EmailTemplateRepository emailTemplateRepository;
+    private final PushTemplateRepository pushTemplateRepository;
+
+    @Override
+    public void run(String... args) {
+        log.info("🚀 Démarrage du processus d'initialisation des templates et configs internes de l'application...");
+
+        UUID sysOrgId = getUuidFromEnv("SYSTEM_ORGANIZATION_ID");
+        UUID smtpSettingId = getUuidFromEnv("SMTP_SETTING_ID");
+        UUID firebaseSettingId = getUuidFromEnv("FIREBASE_SETTING_ID");
+        UUID designEmailOtpId = getUuidFromEnv("DESIGN_EMAIL_OTP_ID");
+        UUID templateEmailOtpId = getUuidFromEnv("TEMPLATE_EMAIL_OTP_ID");
+        UUID templatePushNewPlanningId = getUuidFromEnv("TEMPLATE_PUSH_NEW_PLANNING_ID");
+        UUID templatePushNewAnnouncementId = getUuidFromEnv("TEMPLATE_PUSH_NEW_ANNOUNCEMENT_ID");
+        UUID templatePushAnnouncementAcceptedId = getUuidFromEnv("TEMPLATE_PUSH_ANNOUNCEMENT_ACCEPTED_ID");
+        // NOUVEAU TEMPLATE ID
+        UUID templatePushAnnouncementConfirmedId = getUuidFromEnv("TEMPLATE_PUSH_ANNOUNCEMENT_CONFIRMED_ID");
+
+        log.info(
+                "ℹ️ Les configurations UUID pour les templates sont lues depuis les variables d'environnement/fichier .env.");
+
+        // Étape 2: Insertion de l'organisation 'Système'
+        log.info("🔷 ÉTAPE 2: Insertion de l'organisation 'Système' dans la base de données...");
+        MockOrganisation systemOrg = new MockOrganisation();
+        systemOrg.setOrganizationId(sysOrgId);
+        systemOrg.setLongName("System Default");
+        systemOrg.setDescription("Organisation par défaut pour les templates globaux");
+        mockOrganisationRepository.save(systemOrg)
+                .doOnSuccess(org -> log.info("✅ Organisation 'Système' insérée/mise à jour: {}", org.getLongName()))
+                .doOnError(e -> log.error("❌ Échec de l'insertion de l'organisation système dans ScyllaDB: {}",
+                        e.getMessage()))
+                .block();
+
+        log.info("🔷 ÉTAPE 3: Configuration des templates de notification via les dépôts...");
+
+        // 3.1 Création du Setting SMTP
+        SmtpSetting smtpSetting = new SmtpSetting();
+        smtpSetting.setId(smtpSettingId);
+        smtpSetting.setOrganizationId(sysOrgId);
+        smtpSetting.setHost(mailHost);
+        smtpSetting.setPort(mailPort);
+        smtpSetting.setEncryption("TLS");
+        smtpSetting.setUsername(mailUsername);
+        smtpSetting.setPassword(mailPassword);
+        smtpSetting.setSenderEmail("no-reply@freelancedriver.com");
+        smtpSetting.setSenderName("Freelance Driver App");
+
+        smtpSettingRepository.save(smtpSetting)
+                .doOnSuccess(s -> log.info("✅ Template SMTP créé/mis à jour."))
+                .doOnError(e -> log.error("❌ Échec création/mise à jour SMTP: {}", e.getMessage()))
+                .block();
+
+        // 3.2 Création du Setting Firebase
+        FirebaseSetting firebaseSetting = new FirebaseSetting();
+        firebaseSetting.setId(firebaseSettingId);
+        firebaseSetting.setOrganizationId(sysOrgId);
+        firebaseSetting.setProjectId("freelance-driver-app");
+
+        ClassPathResource resource = new ClassPathResource("firebase-service-account-key.json");
+        try (InputStream serviceAccount = resource.getInputStream()) {
+            String privateKeyJson = new String(serviceAccount.readAllBytes());
+            privateKeyJson = privateKeyJson.replace("\"", "\\\"").replace("\n", "").replace("\r", "");
+            firebaseSetting.setPrivateKey(privateKeyJson);
+        } catch (IOException e) {
+            log.error("❌ Erreur de lecture du fichier Firebase private key: {}", e.getMessage());
+            throw new RuntimeException("Could not load Firebase service account key.", e);
+        }
+
+        firebaseSettingRepository.save(firebaseSetting)
+                .doOnSuccess(fs -> log.info("✅ Template Firebase créé/mis à jour."))
+                .doOnError(e -> log.error("❌ Échec création/mise à jour Firebase: {}", e.getMessage()))
+                .block();
+
+        // 3.3 Création du Design de l'email OTP
+        DesignTemplate designOtp = new DesignTemplate();
+        designOtp.setId(designEmailOtpId);
+        designOtp.setOrganizationId(sysOrgId);
+        designOtp.setTitle("Email OTP");
+        designOtp.setSubject("Votre code de vérification : [[${otpCode}]]");
+        designOtp.setHtml(
+                "<!DOCTYPE html><html xmlns:th=\"http://www.thymeleaf.org\"><body><h1>Bonjour [[${firstName}]],</h1><p>Votre code de vérification est :</p><h2 style='color: #007AFF;'>[[${otpCode}]]</h2></body></html>");
+
+        designTemplateRepository.save(designOtp)
+                .doOnSuccess(dt -> log.info("✅ DesignTemplate (OTP) créé/mis à jour."))
+                .doOnError(e -> log.error("❌ Échec création/mise à jour DesignTemplate (OTP): {}", e.getMessage()))
+                .block();
+
+        // 3.4 Création de l'EmailTemplate (Règle d'envoi OTP)
+        EmailTemplate emailOtpTemplate = new EmailTemplate();
+        emailOtpTemplate.setId(templateEmailOtpId);
+        emailOtpTemplate.setOrganizationId(sysOrgId);
+        emailOtpTemplate.setSettingId(smtpSettingId);
+        emailOtpTemplate.setDesignTemplateId(designEmailOtpId);
+        emailOtpTemplate.setTitle("Règle envoi OTP");
+
+        emailTemplateRepository.save(emailOtpTemplate)
+                .doOnSuccess(et -> log.info("✅ EmailTemplate (OTP) créé/mis à jour."))
+                .doOnError(e -> log.error("❌ Échec création/mise à jour EmailTemplate (OTP): {}", e.getMessage()))
+                .block();
+
+        PushTemplate pushNewPlanning = new PushTemplate();
+        pushNewPlanning.setId(templatePushNewPlanningId);
+        pushNewPlanning.setOrganizationId(sysOrgId);
+        pushNewPlanning.setSettingId(firebaseSettingId);
+        pushNewPlanning.setTitle("Nouveau planning disponible !");
+        pushNewPlanning.setBody("Le chauffeur {{driverName}} propose un trajet vers {{destination}} à {{cost}} FCFA.");
+        pushTemplateRepository.save(pushNewPlanning)
+                .doOnSuccess(pt -> log.info("✅ PushTemplate (New Planning) créé/mis à jour."))
+                .doOnError(
+                        e -> log.error("❌ Échec création/mise à jour PushTemplate (New Planning): {}", e.getMessage()))
+                .block();
+
+        PushTemplate pushNewAnnouncement = new PushTemplate();
+        pushNewAnnouncement.setId(templatePushNewAnnouncementId);
+        pushNewAnnouncement.setOrganizationId(sysOrgId);
+        pushNewAnnouncement.setSettingId(firebaseSettingId);
+        pushNewAnnouncement.setTitle("Nouvelle course client !");
+        pushNewAnnouncement.setBody("Un client a posté un nouveau trajet : {{tripTitle}}");
+        pushTemplateRepository.save(pushNewAnnouncement)
+                .doOnSuccess(pt -> log.info("✅ PushTemplate (New Announcement) créé/mis à jour."))
+                .doOnError(e -> log.error("❌ Échec création/mise à jour PushTemplate (New Announcement): {}",
+                        e.getMessage()))
+                .block();
+
+        PushTemplate pushAnnouncementAccepted = new PushTemplate();
+        pushAnnouncementAccepted.setId(templatePushAnnouncementAcceptedId);
+        pushAnnouncementAccepted.setOrganizationId(sysOrgId);
+        pushAnnouncementAccepted.setSettingId(firebaseSettingId);
+        pushAnnouncementAccepted.setTitle("Votre course a un chauffeur !");
+        pushAnnouncementAccepted.setBody(
+                "Le chauffeur {{driverName}} a postulé pour votre trajet \"{{tripTitle}}\". Appuyez pour accepter."); // Message
+                                                                                                                      // adapté
+        pushTemplateRepository.save(pushAnnouncementAccepted)
+                .doOnSuccess(pt -> log.info("✅ PushTemplate (Announcement Accepted - Postulation) créé/mis à jour."))
+                .doOnError(e -> log.error(
+                        "❌ Échec création/mise à jour PushTemplate (Announcement Accepted - Postulation): {}",
+                        e.getMessage()))
+                .block();
+
+        // NOUVEAU : Template pour la notification au chauffeur quand l'annonce est
+        // confirmée par le client
+        PushTemplate pushAnnouncementConfirmed = new PushTemplate();
+        pushAnnouncementConfirmed.setId(templatePushAnnouncementConfirmedId);
+        pushAnnouncementConfirmed.setOrganizationId(sysOrgId);
+        pushAnnouncementConfirmed.setSettingId(firebaseSettingId);
+        pushAnnouncementConfirmed.setTitle("Félicitations ! Votre postulation a été acceptée !");
+        pushAnnouncementConfirmed.setBody(
+                "Le client {{clientName}} a confirmé votre postulation pour le trajet \"{{tripTitle}}\". La course est en cours !");
+        pushTemplateRepository.save(pushAnnouncementConfirmed)
+                .doOnSuccess(pt -> log.info("✅ PushTemplate (Announcement Confirmed - Chauffeur) créé/mis à jour."))
+                .doOnError(e -> log.error(
+                        "❌ Échec création/mise à jour PushTemplate (Announcement Confirmed - Chauffeur): {}",
+                        e.getMessage()))
+                .block();
+
+        log.info("\n🎉 --- INITIALISATION INTERNE TERMINÉE ---");
+    }
+
+    private UUID getUuidFromEnv(String key) {
+        String value = dotenv.get(key);
+        if (value == null || value.isEmpty()) {
+            log.error(
+                    "❌ Variable d'environnement UUID '{}' non trouvée ou vide dans .env ou les variables système. L'initialisation va échouer.",
+                    key);
+            throw new IllegalStateException("Missing or empty UUID environment variable: " + key);
+        }
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException e) {
+            log.error(
+                    "❌ La valeur '{}' pour la variable d'environnement '{}' n'est pas un UUID valide. L'initialisation va échouer.",
+                    value, key);
+            throw new IllegalStateException("Invalid UUID format for environment variable: " + key, e);
+        }
+    }
+}
+
+*/
+
+
 package com.freelance.driver_backend.initializer;
 
 import com.freelance.driver_backend.model.DesignTemplate;
@@ -7215,7 +7726,7 @@ import com.freelance.driver_backend.repository.mock.MockOrganisationRepository;
 import io.github.cdimascio.dotenv.Dotenv;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value; // Garder si des @Value sont nécessaires pour d'autres beans ici
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
@@ -7225,14 +7736,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
 
+
 @Component
-@Profile({"dev-resource-mock", "dev-mock"}) // Active cette initialisation seulement en dev ou mock
+@Profile({"dev-resource-mock", "dev-mock"})
 @RequiredArgsConstructor
 @Slf4j
 public class ApplicationInitializer implements CommandLineRunner {
 
     private final Dotenv dotenv;
-    // ... (injection des repositories et des @Value pour les paramètres mail) ...
     @Value("${spring.mail.host}")
     private String mailHost;
     @Value("${spring.mail.port}")
@@ -7262,11 +7773,13 @@ public class ApplicationInitializer implements CommandLineRunner {
         UUID templatePushNewPlanningId = getUuidFromEnv("TEMPLATE_PUSH_NEW_PLANNING_ID");
         UUID templatePushNewAnnouncementId = getUuidFromEnv("TEMPLATE_PUSH_NEW_ANNOUNCEMENT_ID");
         UUID templatePushAnnouncementAcceptedId = getUuidFromEnv("TEMPLATE_PUSH_ANNOUNCEMENT_ACCEPTED_ID");
-        
+        UUID templatePushAnnouncementConfirmedId = getUuidFromEnv("TEMPLATE_PUSH_ANNOUNCEMENT_CONFIRMED_ID");
+        // NOUVEAU TEMPLATE ID POUR L'ANNULATION
+        UUID templatePushPostulationCancelledId = getUuidFromEnv("TEMPLATE_PUSH_POSTULATION_CANCELLED_ID"); // <-- AJOUT
+
         log.info("ℹ️ Les configurations UUID pour les templates sont lues depuis les variables d'environnement/fichier .env.");
 
-        // Étape 2: Insertion de l'organisation 'Système' (inchangée)
-        log.info("🔷 ÉTAPE 2: Insertion de l'organisation 'Système' dans la base de données...");
+        // Étape 2: Insertion de l'organisation 'Système'
         MockOrganisation systemOrg = new MockOrganisation();
         systemOrg.setOrganizationId(sysOrgId);
         systemOrg.setLongName("System Default");
@@ -7279,7 +7792,7 @@ public class ApplicationInitializer implements CommandLineRunner {
 
         log.info("🔷 ÉTAPE 3: Configuration des templates de notification via les dépôts...");
 
-        // 3.1 Création du Setting SMTP (inchangée)
+        // 3.1 Création du Setting SMTP
         SmtpSetting smtpSetting = new SmtpSetting();
         smtpSetting.setId(smtpSettingId);
         smtpSetting.setOrganizationId(sysOrgId);
@@ -7296,7 +7809,7 @@ public class ApplicationInitializer implements CommandLineRunner {
             .doOnError(e -> log.error("❌ Échec création/mise à jour SMTP: {}", e.getMessage()))
             .block();
 
-        // 3.2 Création du Setting Firebase (inchangée)
+        // 3.2 Création du Setting Firebase
         FirebaseSetting firebaseSetting = new FirebaseSetting();
         firebaseSetting.setId(firebaseSettingId);
         firebaseSetting.setOrganizationId(sysOrgId);
@@ -7322,9 +7835,7 @@ public class ApplicationInitializer implements CommandLineRunner {
         designOtp.setId(designEmailOtpId);
         designOtp.setOrganizationId(sysOrgId);
         designOtp.setTitle("Email OTP");
-        designOtp.setSubject("Votre code de vérification : [[${otpCode}]]"); // Le sujet était déjà en inline expression, c'est bien.
-        
-        // C'est ICI la modification clé : Utiliser l'inline expression pour le HTML
+        designOtp.setSubject("Votre code de vérification : [[${otpCode}]]");
         designOtp.setHtml("<!DOCTYPE html><html xmlns:th=\"http://www.thymeleaf.org\"><body><h1>Bonjour [[${firstName}]],</h1><p>Votre code de vérification est :</p><h2 style='color: #007AFF;'>[[${otpCode}]]</h2></body></html>");
 
         designTemplateRepository.save(designOtp)
@@ -7332,7 +7843,7 @@ public class ApplicationInitializer implements CommandLineRunner {
             .doOnError(e -> log.error("❌ Échec création/mise à jour DesignTemplate (OTP): {}", e.getMessage()))
             .block();
 
-        // ... (reste des créations de EmailTemplate et PushTemplates inchangées) ...
+        // 3.4 Création de l'EmailTemplate (Règle d'envoi OTP)
         EmailTemplate emailOtpTemplate = new EmailTemplate();
         emailOtpTemplate.setId(templateEmailOtpId);
         emailOtpTemplate.setOrganizationId(sysOrgId);
@@ -7372,11 +7883,35 @@ public class ApplicationInitializer implements CommandLineRunner {
         pushAnnouncementAccepted.setOrganizationId(sysOrgId);
         pushAnnouncementAccepted.setSettingId(firebaseSettingId);
         pushAnnouncementAccepted.setTitle("Votre course a un chauffeur !");
-        pushAnnouncementAccepted.setBody("Le chauffeur {{driverName}} a accepté votre trajet \\\"{{tripTitle}}\\\". Appuyez pour voir son profil.");
+        pushAnnouncementAccepted.setBody("Le chauffeur {{driverName}} a postulé pour votre trajet \"{{tripTitle}}\". Appuyez pour accepter.");
         pushTemplateRepository.save(pushAnnouncementAccepted)
-            .doOnSuccess(pt -> log.info("✅ PushTemplate (Announcement Accepted) créé/mis à jour."))
-            .doOnError(e -> log.error("❌ Échec création/mise à jour PushTemplate (Announcement Accepted): {}", e.getMessage()))
+            .doOnSuccess(pt -> log.info("✅ PushTemplate (Announcement Accepted - Postulation) créé/mis à jour."))
+            .doOnError(e -> log.error("❌ Échec création/mise à jour PushTemplate (Announcement Accepted - Postulation): {}", e.getMessage()))
             .block();
+
+        PushTemplate pushAnnouncementConfirmed = new PushTemplate();
+        pushAnnouncementConfirmed.setId(templatePushAnnouncementConfirmedId);
+        pushAnnouncementConfirmed.setOrganizationId(sysOrgId);
+        pushAnnouncementConfirmed.setSettingId(firebaseSettingId);
+        pushAnnouncementConfirmed.setTitle("Félicitations ! Votre postulation a été acceptée !");
+        pushAnnouncementConfirmed.setBody("Le client {{clientName}} a confirmé votre postulation pour le trajet \"{{tripTitle}}\". La course est en cours !");
+        pushTemplateRepository.save(pushAnnouncementConfirmed)
+            .doOnSuccess(pt -> log.info("✅ PushTemplate (Announcement Confirmed - Chauffeur) créé/mis à jour."))
+            .doOnError(e -> log.error("❌ Échec création/mise à jour PushTemplate (Announcement Confirmed - Chauffeur): {}", e.getMessage()))
+            .block();
+
+        // NOUVEAU : Template pour la notification au client quand le chauffeur annule sa postulation
+        PushTemplate pushPostulationCancelled = new PushTemplate();
+        pushPostulationCancelled.setId(templatePushPostulationCancelledId);
+        pushPostulationCancelled.setOrganizationId(sysOrgId);
+        pushPostulationCancelled.setSettingId(firebaseSettingId);
+        pushPostulationCancelled.setTitle("Annulation de postulation !");
+        pushPostulationCancelled.setBody("Le chauffeur {{driverName}} a annulé sa postulation pour votre annonce \"{{tripTitle}}\". L'annonce est de nouveau publiée.");
+        pushTemplateRepository.save(pushPostulationCancelled)
+            .doOnSuccess(pt -> log.info("✅ PushTemplate (Postulation Cancelled) créé/mis à jour."))
+            .doOnError(e -> log.error("❌ Échec création/mise à jour PushTemplate (Postulation Cancelled): {}", e.getMessage()))
+            .block();
+
 
         log.info("\n🎉 --- INITIALISATION INTERNE TERMINÉE ---");
     }
@@ -7394,7 +7929,10 @@ public class ApplicationInitializer implements CommandLineRunner {
             throw new IllegalStateException("Invalid UUID format for environment variable: " + key, e);
         }
     }
-}// END OF FILE: src/main/java/com/freelance/driver_backend/initializer/ApplicationInitializer.java
+}
+
+
+// END OF FILE: src/main/java/com/freelance/driver_backend/initializer/ApplicationInitializer.java
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/AnnouncementStatus.java
 
@@ -7419,7 +7957,7 @@ import org.springframework.data.cassandra.core.mapping.Column;
 import org.springframework.data.cassandra.core.mapping.PrimaryKey;
 import org.springframework.data.cassandra.core.mapping.Table;
 import java.util.UUID;
-import org.springframework.data.cassandra.core.mapping.Indexed; 
+import org.springframework.data.cassandra.core.mapping.Indexed;
 
 @Table("client_profiles")
 @Data
@@ -7427,16 +7965,16 @@ public class ClientProfile {
     @PrimaryKey
     private UUID id;
 
-    @Indexed 
+    @Indexed
     @Column("user_id")
     private UUID userId;
-    
+
     @Column("organisation_id")
     private UUID organisationId;
-    
+
     @Column("profile_image_url")
     private String profileImageUrl;
-    
+
     // Informations de l'entreprise
     @Column("company_name")
     private String companyName;
@@ -7444,29 +7982,29 @@ public class ClientProfile {
     // Informations du contact principal
     @Column("first_name")
     private String firstName;
-    
+
     @Column("last_name")
     private String lastName;
 
     @Column("nickname")
     private String nickname;
-    
+
     @Column("contact_email")
     private String contactEmail;
-    
+
     @Column("phone_number")
     private String phoneNumber;
 
     // Informations personnelles additionnelles
     @Column("birth_date")
     private String birthDate;
-    
+
     @Column("nationality")
     private String nationality;
-    
+
     @Column("gender")
     private String gender;
-    
+
     @Column("language")
     private String language;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/ClientProfile.java
@@ -7521,7 +8059,6 @@ public class DeviceToken {
 
 package com.freelance.driver_backend.model;
 
-
 import org.springframework.data.cassandra.core.mapping.Column;
 import org.springframework.data.cassandra.core.mapping.PrimaryKey;
 import org.springframework.data.cassandra.core.mapping.Table;
@@ -7535,7 +8072,6 @@ public class DriverProfile {
 
     @PrimaryKey
     private UUID id;
-    
 
     @Indexed
     @Column("user_id")
@@ -7559,20 +8095,22 @@ public class DriverProfile {
     @Column("vehicle_details")
     private String vehicleDetails;
 
-    @Column("profile_image_url") private String profileImageUrl;
+    @Column("profile_image_url")
+    private String profileImageUrl;
 
-
-
-    @Column("nickname") private String nickname;
-    @Column("birth_date") private String birthDate; // On garde en String pour la simplicité
-    @Column("nationality") private String nationality;
-    @Column("gender") private String gender;
-    @Column("language") private String language;
-    @Column("biography") private String biography;
+    @Column("nickname")
+    private String nickname;
+    @Column("birth_date")
+    private String birthDate; // On garde en String pour la simplicité
+    @Column("nationality")
+    private String nationality;
+    @Column("gender")
+    private String gender;
+    @Column("language")
+    private String language;
+    @Column("biography")
+    private String biography;
 }
-
-    
-
 // END OF FILE: src/main/java/com/freelance/driver_backend/model/DriverProfile.java
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/EmailTemplate.java
@@ -8546,86 +9084,6 @@ public class ChatServiceWebClientImpl implements ChatService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/ChatServiceWebClientImpl.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/MediaService.java
-
-package com.freelance.driver_backend.service.external;
-
-import com.freelance.driver_backend.dto.external.UploadMediaResponse;
-import org.springframework.http.codec.multipart.FilePart;
-import reactor.core.publisher.Mono;
-
-public interface MediaService {
-    Mono<UploadMediaResponse> uploadFile(String service, String type, String path, String bearerToken, String publicKey, FilePart filePart);
-    Mono<Void> deleteFile(String fullPath, String bearerToken, String publicKey); // <-- AJOUTEZ CETTE LIGNE
-}// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/MediaService.java
-
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/MediaServiceWebClientImpl.java
-
-package com.freelance.driver_backend.service.external;
-
-import com.freelance.driver_backend.dto.external.UploadMediaResponse;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.reactive.ReactorClientHttpConnector;
-import org.springframework.http.codec.multipart.FilePart;
-import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.reactive.function.BodyInserters;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
-import reactor.netty.http.client.HttpClient;
-
-import java.time.Duration;
-
-@Service
-@Profile("production") // NE S'ACTIVE QU'EN PROFIL PRODUCTION
-@Slf4j
-public class MediaServiceWebClientImpl implements MediaService {
-
-    private final WebClient webClient;
-
-    public MediaServiceWebClientImpl(@Value("${microservices.media-service.url}") String mediaServiceUrl) {
-        // Ce WebClient est configuré spécifiquement pour les uploads de fichiers,
-        // qui peuvent prendre plus de temps. Il n'ajoute pas de "Content-Type" par défaut.
-        this.webClient = WebClient.builder()
-            .baseUrl(mediaServiceUrl)
-            .clientConnector(new ReactorClientHttpConnector(
-                HttpClient.create().responseTimeout(Duration.ofSeconds(30)) // Timeout de 30s pour l'upload
-            ))
-            .build();
-    }
-
-    @Override
-    public Mono<UploadMediaResponse> uploadFile(String service, String type, String path, String bearerToken, String publicKey, FilePart filePart) {
-        log.info("Relaying file to EXTERNAL Media Service. Path: {}/{}/{}", service, type, path);
-
-        // On prépare le corps de la requête en "multipart/form-data"
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", filePart);
-        
-        return webClient.post()
-                .uri("/{service}/{type}/{path}", service, type, path)
-                .header("Authorization", bearerToken)
-                .header("Public-Key", publicKey)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(body))
-                .retrieve()
-                .bodyToMono(UploadMediaResponse.class)
-                .doOnError(e -> log.error("Error uploading file to external media service", e));
-    }
-
-    @Override
-    public Mono<Void> deleteFile(String filePath, String bearerToken, String publicKey) {
-        log.warn("[EXTERNAL-IMPL-MEDIA] deleteFile - NOT IMPLEMENTED YET. This would call the real delete endpoint.");
-        // Pour la production, vous implémenteriez l'appel DELETE ici.
-        // Pour le dev, on retourne simplement un succès.
-        return Mono.empty();
-    }
-}// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/MediaServiceWebClientImpl.java
-
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/mock/MockAuthServiceImpl.java
 
 package com.freelance.driver_backend.service.external.mock;
@@ -8791,6 +9249,7 @@ import com.freelance.driver_backend.repository.EmailTemplateRepository;
 import com.freelance.driver_backend.repository.PushTemplateRepository;
 import com.freelance.driver_backend.repository.SmtpSettingRepository;
 import com.freelance.driver_backend.service.external.NotificationService;
+import com.freelance.driver_backend.service.FcmHttpClient;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8807,11 +9266,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-import com.google.firebase.messaging.BatchResponse;
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.Message;
-import com.google.firebase.messaging.Notification;
+import com.google.firebase.FirebaseApp;
 
 @Service
 @Profile({"dev-mock", "dev-resource-mock"})
@@ -8825,9 +9282,9 @@ public class MockNotificationServiceImpl implements NotificationService {
     private final JavaMailSender javaMailSender;
     private final SpringTemplateEngine thymeleafTemplateEngine;
     private final PushTemplateRepository pushTemplateRepository;
+    private final FirebaseApp firebaseApp; 
+    private final FcmHttpClient fcmHttpClient;
 
-    
-        
     @Override
     public Mono<Boolean> sendEmailNotification(UUID organisationId, NotificationRequest request, String userBearerToken, String publicKey) {
         log.warn("==================== [LOCAL EMAIL SERVICE - REAL SEND] ====================");
@@ -8853,10 +9310,6 @@ public class MockNotificationServiceImpl implements NotificationService {
                 String finalSubject = thymeleafTemplateEngine.process(designTemplate.getSubject(), thymeleafContext);
                 String finalHtmlBody = thymeleafTemplateEngine.process(designTemplate.getHtml(), thymeleafContext);
 
-                // ==============================================================================
-                //                         LA CORRECTION EST ICI
-                // ==============================================================================
-                // On utilise Mono.fromCallable pour mieux gérer les exceptions bloquantes
                 return Mono.fromCallable(() -> {
                     try {
                         MimeMessage message = javaMailSender.createMimeMessage();
@@ -8868,59 +9321,48 @@ public class MockNotificationServiceImpl implements NotificationService {
 
                         javaMailSender.send(message);
                         log.warn(">>> REAL EMAIL SENT via LOCAL Service to {} <<<", request.getRecipients());
-                        return true; // Succès
+                        return true;
                     } catch (Exception e) {
-                        // On logue l'erreur de manière très visible
                         log.error("==================== ERREUR SMTP ====================");
                         log.error("Échec de l'envoi de l'email. Cause: {}", e.getMessage());
                         log.error("Vérifiez vos identifiants dans application.properties et le mot de passe d'application Google.");
                         log.error("=====================================================");
-                        // On propage l'exception pour que le Mono échoue
                         throw new RuntimeException("Failed to send email", e);
                     }
                 })
-                .subscribeOn(Schedulers.boundedElastic()) // On exécute sur un thread dédié
-                .onErrorReturn(false); // Si une exception est levée, on retourne false
-                // ==============================================================================
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorReturn(false);
             })
             .defaultIfEmpty(false);
     }
 
     @Override
     public Mono<Boolean> sendPushNotification(UUID organisationId, NotificationRequest request, String userBearerToken, String publicKey) {
-        log.warn("==================== [LOCAL PUSH SERVICE - REAL SEND] ====================");
+        log.warn("==================== [LOCAL PUSH SERVICE - REAL SEND VIA FCM HTTP CLIENT] ====================");
         
+        if (request.getRecipients() == null || request.getRecipients().isEmpty()) {
+            log.warn("[LOCAL PUSH SERVICE] Aucuns destinataires pour la notification push.");
+            return Mono.just(false);
+        }
+
         return pushTemplateRepository.findById(request.getTemplateId())
             .flatMap(pushTemplate -> {
-                // Remplacer les variables dans le titre et le corps
                 String finalTitle = replaceMetadata(pushTemplate.getTitle(), request.getMetadata());
                 String finalBody = replaceMetadata(pushTemplate.getBody(), request.getMetadata());
 
-                // Construire les messages pour Firebase
-                List<Message> messages = request.getRecipients().stream()
-                    .map(token -> Message.builder()
-                        .setNotification(Notification.builder()
-                            .setTitle(finalTitle)
-                            .setBody(finalBody)
-                            .build())
-                        .setToken(token) // Le token de l'appareil
-                        .build())
-                    .toList();
-
-                // Publier l'envoi sur un thread non-bloquant
-                return Mono.fromCallable(() -> {
-                        BatchResponse response = FirebaseMessaging.getInstance().sendAll(messages);
-                        log.warn(">>> REAL PUSH NOTIFICATIONS SENT via LOCAL Service. Success: {}, Failure: {} <<<", 
-                                 response.getSuccessCount(), response.getFailureCount());
-                        return response.getFailureCount() == 0;
-                    })
-                    .subscribeOn(Schedulers.boundedElastic());
+                // --- MODIFICATION ICI : Appeler FcmHttpClient avec le dataPayload ---
+                return fcmHttpClient.sendNotifications(request.getRecipients(), finalTitle, finalBody, request.getData()) // <-- AJOUT DE request.getData()
+                           .then(Mono.just(true)) 
+                           .onErrorResume(e -> { 
+                               log.error("❌ Erreur lors de l'envoi de notifications push via FcmHttpClient: {}", e.getMessage());
+                               return Mono.just(false);
+                           });
             })
             .defaultIfEmpty(false)
-            .doOnError(e -> log.error("Error during local push sending process", e))
+            .doOnError(e -> log.error("Error during local push sending process (outside flatMap)", e))
             .onErrorReturn(false);
     }
-    // Petite méthode utilitaire pour remplacer les variables
+
     private String replaceMetadata(String text, Map<String, String> metadata) {
         if (text == null || metadata == null) return text;
         for (Map.Entry<String, String> entry : metadata.entrySet()) {
@@ -8928,12 +9370,6 @@ public class MockNotificationServiceImpl implements NotificationService {
         }
         return text;
     }
-
-
-        
-
-
-
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/mock/MockNotificationServiceImpl.java
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/mock/MockOrganisationServiceImpl.java
@@ -9203,8 +9639,6 @@ public class ResourceServiceExternalImpl implements ResourceService {
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/FcmHttpClient.java
 
-// src/main/java/com/freelance/driver_backend/service/FcmHttpClient.java
-
 package com.freelance.driver_backend.service;
 
 import com.google.auth.oauth2.GoogleCredentials;
@@ -9216,87 +9650,100 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import org.springframework.http.HttpStatusCode;
+import java.util.HashMap;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 public class FcmHttpClient {
 
     private final WebClient webClient;
-    private final FirebaseApp firebaseApp;
+    private final FirebaseApp firebaseApp; 
+    private final String projectId;        
 
-    public FcmHttpClient(FirebaseApp firebaseApp) {
+    public FcmHttpClient(FirebaseApp firebaseApp) { 
         this.firebaseApp = firebaseApp;
+        this.projectId = firebaseApp.getOptions().getProjectId(); 
+        
+        if (this.projectId == null || this.projectId.isBlank()) {
+            throw new IllegalStateException("Firebase Project ID not configured in FirebaseApp options.");
+        }
+
         this.webClient = WebClient.builder()
-                .baseUrl("https://fcm.googleapis.com")
+                .baseUrl("https://fcm.googleapis.com") 
                 .build();
     }
 
-    /**
-     * Obtient un token d'accès OAuth2 à partir du fichier de clé de service.
-     * Ce token est nécessaire pour authentifier chaque requête à l'API FCM.
-     */
     private Mono<String> getAccessToken() {
         return Mono.fromCallable(() -> {
-            ClassPathResource resource = new ClassPathResource("firebase-service-account-key.example");
+            ClassPathResource resource = new ClassPathResource("firebase-service-account-key.json"); 
             try (InputStream stream = resource.getInputStream()) {
                 GoogleCredentials credentials = GoogleCredentials.fromStream(stream)
                     .createScoped(Collections.singletonList("https://www.googleapis.com/auth/firebase.messaging"));
                 
-                credentials.refreshIfExpired();
+                credentials.refreshIfExpired(); 
                 return credentials.getAccessToken().getTokenValue();
             }
-        }).onErrorMap(IOException.class, e -> new RuntimeException("Impossible d'obtenir le token d'accès Google.", e));
+        }).onErrorMap(IOException.class, e -> new RuntimeException("Impossible d'obtenir le token d'accès Google pour FCM.", e));
     }
 
-    /**
-     * Envoie des notifications à une liste de tokens d'appareils.
-     */
-    public Mono<Void> sendNotifications(List<String> tokens, String title, String body) {
+    // NOUVELLE SIGNATURE : Accepte un dataPayload
+    public Mono<Void> sendNotifications(List<String> tokens, String title, String body, Map<String, String> dataPayload) {
         if (tokens == null || tokens.isEmpty()) {
-            log.warn("Aucun token fourni, l'envoi de notification est annulé.");
+            log.warn("[FCM HTTP CLIENT] Aucun token fourni, l'envoi de notification est annulé.");
             return Mono.empty();
         }
         
-        String projectId = firebaseApp.getOptions().getProjectId();
-        if (projectId == null || projectId.isBlank()) {
-            return Mono.error(new IllegalStateException("L'ID du projet Firebase n'est pas configuré."));
-        }
-
-        log.info("▶️ Préparation de l'envoi de la notification '{}' à {} appareil(s).", title, tokens.size());
+        log.info("▶️ [FCM HTTP CLIENT] Préparation de l'envoi de la notification '{}' à {} appareil(s). Projet: {}", title, tokens.size(), this.projectId);
 
         return getAccessToken().flatMap(token ->
-            // On envoie une requête pour chaque token
             Flux.fromIterable(tokens)
-                .flatMap(deviceToken -> {
+                .flatMap(singleToken -> { 
                     // Construction du corps de la requête JSON pour l'API FCM v1
+                    Map<String, Object> messageContent = new HashMap<>();
+                    messageContent.put("token", singleToken);
+                    messageContent.put("notification", Map.of("title", title, "body", body));
+                    
+                    // AJOUT : Inclure le dataPayload si présent
+                    if (dataPayload != null && !dataPayload.isEmpty()) {
+                        messageContent.put("data", dataPayload);
+                    }
+
                     Map<String, Object> notificationPayload = Map.of(
-                        "message", Map.of(
-                            "token", deviceToken,
-                            "notification", Map.of(
-                                "title", title,
-                                "body", body
-                            )
-                        )
+                        "message", messageContent
                     );
 
                     return webClient.post()
-                        .uri("/v1/projects/{projectId}/messages:send", projectId)
+                        .uri("/v1/projects/{projectId}/messages:send", this.projectId)
                         .headers(headers -> headers.setBearerAuth(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(notificationPayload)
                         .retrieve()
-                        .bodyToMono(String.class)
-                        .doOnSuccess(response -> log.info("✅ Réponse de FCM pour le token {}...: {}", deviceToken.substring(0, 10), response))
-                        .doOnError(e -> log.error("❌ Échec de l'envoi au token {}...: {}", deviceToken.substring(0, 10), e.getMessage()))
-                        .onErrorResume(e -> Mono.empty()); // Ne pas faire échouer tout le lot si un seul token est invalide
+                        .onStatus(HttpStatusCode::isError, response -> 
+                            response.bodyToMono(String.class)
+                                    .map(errorBody -> {
+                                        log.error("❌ [FCM HTTP CLIENT] Erreur HTTP lors de l'envoi à FCM (Status: {}): {}", response.statusCode(), errorBody);
+                                        return new RuntimeException("Échec d'envoi FCM: " + errorBody);
+                                    })
+                                    .switchIfEmpty(Mono.defer(() -> {
+                                        log.error("❌ [FCM HTTP CLIENT] Échec d'envoi FCM: corps d'erreur vide. Status: {}", response.statusCode());
+                                        return Mono.just(new RuntimeException("Échec d'envoi FCM: corps d'erreur vide. Status: " + response.statusCode()));
+                                    }))
+                        )
+                        // <-- LA PARENTHÈSE EN TROP ÉTAIT ICI, JE L'AI SUPPRIMÉE !
+                        .bodyToMono(String.class) 
+                        .doOnSuccess(responseBody -> log.info("✅ [FCM HTTP CLIENT] Réponse de FCM pour token {}: {}", singleToken.substring(0, 10) + "...", responseBody)) 
+                        .doOnError(e -> log.error("❌ [FCM HTTP CLIENT] Échec de l'envoi à FCM pour token {}: {}", singleToken.substring(0, 10) + "...", e.getMessage())) 
+                        .onErrorResume(e -> Mono.empty()); 
                 })
-                .then() // Attend que toutes les requêtes du Flux soient terminées
+                .then() // <-- C'est ici que le Mono<Void> est généré.
         );
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/FcmHttpClient.java
@@ -9343,15 +9790,23 @@ public class FirebaseService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/FirebaseService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/internal/MediaServiceLocalImpl.java
+//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/internal/ExternalMediaStorageService.java
 
 package com.freelance.driver_backend.service.internal;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.freelance.driver_backend.dto.external.OAuthTokenResponse;
 import com.freelance.driver_backend.dto.external.UploadMediaResponse;
-import com.freelance.driver_backend.service.external.MediaService;
+import com.freelance.driver_backend.service.StorageService;
+import com.freelance.driver_backend.service.external.AuthService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.Profile;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
@@ -9361,147 +9816,230 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-@Service
-@Profile("dev-resource-mock")
-@Slf4j
-public class MediaServiceLocalImpl implements MediaService {
-
-    // ==============================================================================
-    //                         LA CORRECTION EST ICI
-    // ==============================================================================
-    private final WebClient localApiClient;
-
-    public MediaServiceLocalImpl(@Qualifier("localApiWebClient") WebClient localApiClient) {
-        this.localApiClient = localApiClient;
-    }
-    // ==============================================================================
-
-    @Override
-    public Mono<UploadMediaResponse> uploadFile(String service, String type, String path, String bearerToken, String publicKey, FilePart filePart) {
-        log.warn("[LOCAL-IMPL-MEDIA] Appel du MockMediaController local pour téléversement...");
-
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", filePart);
-        
-        return localApiClient.post()
-                .uri("/media/{service}/{type}/{path}", service, type, path)
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(BodyInserters.fromMultipartData(body))
-                .retrieve()
-                .bodyToMono(UploadMediaResponse.class);
-    }
-
-    @Override
-    public Mono<Void> deleteFile(String filePath, String bearerToken, String publicKey) {
-        log.warn("[LOCAL-IMPL-MEDIA] Appel du MockMediaController local pour suppression du fichier : {}", filePath);
-        // On construit l'URI en supposant que filePath est de la forme /service/type/path/filename
-        return localApiClient.delete()
-                .uri("/media" + filePath) 
-                .retrieve()
-                .bodyToMono(Void.class);
-    }
-}// END OF FILE: src/main/java/com/freelance/driver_backend/service/internal/MediaServiceLocalImpl.java
-
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/internal/MinioStorageServiceImpl.java
-
-// src/main/java/com/freelance/driver_backend/service/internal/MinioStorageServiceImpl.java
-
-package com.freelance.driver_backend.service.internal;
-
-import com.freelance.driver_backend.service.StorageService;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.RemoveObjectArgs;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.buffer.DataBufferUtils;
-import org.springframework.http.codec.multipart.FilePart;
-import org.springframework.stereotype.Service;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
-
-import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.UUID;
 
 @Service
+@Primary
 @Slf4j
-public class MinioStorageServiceImpl implements StorageService {
+public class ExternalMediaStorageService implements StorageService {
 
-    private final MinioClient minioClient;
-    private final String bucketName;
-    private final String endpoint;
+    private final WebClient externalMediaServiceWebClient;
+    private final AuthService authService;
+    private final String oauthClientId;
+    private final String oauthClientSecret;
 
-    public MinioStorageServiceImpl(
-            @Value("${minio.endpoint}") String endpoint,
-            @Value("${minio.access-key}") String accessKey,
-            @Value("${minio.secret-key}") String secretKey,
-            @Value("${minio.bucket-name}") String bucketName
-    ) {
-        this.minioClient = MinioClient.builder()
-                .endpoint(endpoint)
-                .credentials(accessKey, secretKey)
-                .build();
-        this.bucketName = bucketName;
-        this.endpoint = endpoint;
+    public ExternalMediaStorageService(
+            @Qualifier("externalMediaServiceWebClient") WebClient externalMediaServiceWebClient,
+            AuthService authService,
+            @Value("${freelancedriver.oauth2.client-id}") String oauthClientId,
+            @Value("${freelancedriver.oauth2.client-secret}") String oauthClientSecret) {
+        this.externalMediaServiceWebClient = externalMediaServiceWebClient;
+        this.authService = authService;
+        this.oauthClientId = oauthClientId;
+        this.oauthClientSecret = oauthClientSecret;
     }
 
-    @Override
-    public Mono<String> saveFile(String basePath, String originalFileName, FilePart file) {
-        return DataBufferUtils.join(file.content())
-            .flatMap(dataBuffer -> {
-                // Créer un nom de fichier unique pour éviter les collisions
-                String fileExtension = getFileExtension(originalFileName);
-                String objectName = String.format("%s/%s%s", basePath, UUID.randomUUID(), fileExtension);
-                
-                // Le code MinIO est bloquant, il doit donc être exécuté sur un thread dédié.
-                return Mono.fromCallable(() -> {
-                    try (InputStream inputStream = dataBuffer.asInputStream(true)) {
-                        minioClient.putObject(
-                            PutObjectArgs.builder()
-                                .bucket(bucketName)
-                                .object(objectName)
-                                .stream(inputStream, dataBuffer.readableByteCount(), -1)
-                                .contentType(file.headers().getContentType().toString())
-                                .build()
-                        );
-                        // Construire l'URL publique du fichier
-                        return String.format("%s/%s/%s", this.endpoint, this.bucketName, objectName);
-                    } catch (Exception e) {
-                        log.error("❌ Erreur lors du téléversement vers MinIO", e);
-                        throw new RuntimeException("Erreur de téléversement de fichier", e);
-                    }
-                }).subscribeOn(Schedulers.boundedElastic()); // Délègue l'opération bloquante
-            })
-            .doFinally(signalType -> file.content().subscribe(DataBufferUtils::release)); // Libère la mémoire tampon
+    private Mono<String> getM2MBearerToken() {
+        return authService.getClientCredentialsToken(oauthClientId, oauthClientSecret)
+                .map(OAuthTokenResponse::getAccessToken)
+                .map(token -> "Bearer " + token)
+                .doOnError(e -> log.error("❌ Échec de l'obtention du token M2M pour l'API de médias: {}",
+                        e.getMessage(), e))
+                .switchIfEmpty(
+                        Mono.error(new RuntimeException("Impossible d'obtenir un token M2M pour l'API de médias.")));
     }
 
-    @Override
-    public Mono<Void> deleteFile(String objectName) {
-        return Mono.fromRunnable(() -> {
-            try {
-                log.info("▶️ Suppression du fichier '{}' du bucket MinIO '{}'", objectName, bucketName);
-                minioClient.removeObject(
-                    RemoveObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(objectName)
-                        .build()
-                );
-                log.info("✅ Suppression réussie.");
-            } catch (Exception e) {
-                log.error("❌ Erreur lors de la suppression du fichier sur MinIO", e);
-                // On ne propage pas l'erreur pour ne pas faire échouer tout le processus
-                // si seule la suppression de l'ancien fichier échoue.
-            }
-        }).subscribeOn(Schedulers.boundedElastic()).then();
-    }
-
-    private String getFileExtension(String filename) {
-        if (filename == null || !filename.contains(".")) {
-            return "";
+    private String determineExternalMediaType(MediaType contentType) {
+        if (contentType == null)
+            return "unknown";
+        if (contentType.isCompatibleWith(MediaType.IMAGE_JPEG) || contentType.isCompatibleWith(MediaType.IMAGE_PNG)
+                || contentType.isCompatibleWith(MediaType.IMAGE_GIF)) {
+            return "image";
         }
-        return filename.substring(filename.lastIndexOf("."));
+        if (contentType.isCompatibleWith(MediaType.APPLICATION_PDF)) {
+            return "pdf";
+        }
+        if (contentType.isCompatibleWith(MediaType.parseMediaType("audio/*"))) {
+            return "audio";
+        }
+        if (contentType.isCompatibleWith(MediaType.parseMediaType("video/*"))) {
+            return "video";
+        }
+        return "file";
     }
-}// END OF FILE: src/main/java/com/freelance/driver_backend/service/internal/MinioStorageServiceImpl.java
+
+    @Override
+    public Mono<UploadMediaResponse> saveFile(String serviceContext, String frontendLogicalType, UUID uploaderUserId,
+            UUID targetResourceId, String originalFileName, FilePart file) {
+        log.info(
+                "[ExternalMediaStorageService] Téléversement vers l'API externe de médias. FrontendType: {}, ResourceId: {}, UserId: {}",
+                frontendLogicalType, targetResourceId, uploaderUserId);
+
+        String externalMediaType = determineExternalMediaType(file.headers().getContentType());
+        if ("unknown".equals(externalMediaType)) {
+            return Mono.error(new IllegalArgumentException("Unsupported media type for file: " + originalFileName));
+        }
+
+        // ---------- CORRECTION DE LA CONSTRUCTION DE L'URI POUR POST ----------
+        // L'API s'attend à: /media/{service}/{type}/{path}/{resource_id}
+        // où {path} est un segment simple (ex: "avatars")
+        // et {resource_id} est l'ID de la ressource associée (ex: l'ID de
+        // l'utilisateur)
+        String apiUri = String.format("/media/%s/%s/%s/%s",
+                serviceContext, // ex: "product"
+                externalMediaType, // ex: "image"
+                frontendLogicalType, // C'est le {path} simple, ex: "avatars"
+                targetResourceId.toString()); // C'est le {resource_id}, ex: l'UUID de l'utilisateur
+        // -------------------------------------------------------------------
+
+        log.info("[ExternalMediaStorageService] URI de l'API externe pour POST : {}", apiUri);
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", file);
+
+        return getM2MBearerToken()
+                .flatMap(m2mBearerToken -> externalMediaServiceWebClient.post()
+                        .uri(apiUri)
+                        .header(HttpHeaders.AUTHORIZATION, m2mBearerToken)
+                        .contentType(MediaType.MULTIPART_FORM_DATA)
+                        .body(BodyInserters.fromMultipartData(body))
+                        .retrieve()
+                        .onStatus(HttpStatusCode::isError, response -> response.bodyToMono(String.class)
+                                .flatMap(errorBody -> {
+                                    log.error("❌ Erreur HTTP lors du téléversement vers l'API externe (Status: {}): {}",
+                                            response.statusCode(), errorBody);
+                                    return Mono.error(new RuntimeException(
+                                            "Échec du téléversement vers le service de médias externe: " + errorBody));
+                                })
+                                .switchIfEmpty(Mono.defer(() -> Mono.error(new RuntimeException(
+                                        "Échec du téléversement vers le service de médias externe: corps d'erreur vide. Status: "
+                                                + response.statusCode()))))
+                                .cast(Throwable.class))
+                        .bodyToMono(String.class)
+                        .flatMap(rawResponseBody -> {
+                            log.info("[ExternalMediaStorageService] Réponse brute de l'API de médias externe: {}",
+                                    rawResponseBody);
+
+                            if (rawResponseBody == null || rawResponseBody.trim().isEmpty()) {
+                                log.error(
+                                        "[ExternalMediaStorageService] L'API de médias externe a renvoyé une réponse vide ou nulle APRÈS un statut 2xx. Ceci est inattendu.");
+                                return Mono.error(new RuntimeException(
+                                        "L'API de médias externe a renvoyé une réponse vide après un statut de succès."));
+                            }
+
+                            try {
+                                ObjectMapper objectMapper = new ObjectMapper();
+                                objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+                                UploadMediaResponse uploadResponse = objectMapper.readValue(rawResponseBody,
+                                        UploadMediaResponse.class);
+
+                                if (uploadResponse == null || uploadResponse.getId() == null
+                                        || uploadResponse.getResourceId() == null || uploadResponse.getUri() == null
+                                        || uploadResponse.getUrl() == null || uploadResponse.getUrl().isEmpty()) {
+                                    log.error(
+                                            "[ExternalMediaStorageService] La désérialisation a réussi, mais la réponse de l'API de médias externe est INVALIDE (champs essentiels manquants ou nuls): {}. Réponse brute: {}",
+                                            uploadResponse, rawResponseBody);
+                                    return Mono.error(new RuntimeException(
+                                            "La réponse de l'API de médias externe est incomplète ou invalide."));
+                                }
+
+                                return Mono.just(uploadResponse);
+                            } catch (JsonProcessingException e) {
+                                log.error(
+                                        "[ExternalMediaStorageService] Erreur de désérialisation JSON de la réponse de l'API de médias externe: {} - Réponse brute: {}",
+                                        e.getMessage(), rawResponseBody, e);
+                                return Mono.error(new RuntimeException(
+                                        "Échec de l'analyse JSON de la réponse du service de médias externe.", e));
+                            } catch (Exception e) {
+                                log.error(
+                                        "[ExternalMediaStorageService] Erreur inattendue lors du traitement de la réponse de l'API de médias externe: {} - Réponse brute: {}",
+                                        e.getMessage(), rawResponseBody, e);
+                                return Mono.error(new RuntimeException(
+                                        "Erreur lors du traitement de la réponse du service de médias externe.", e));
+                            }
+                        })
+                        .doOnSuccess(uploadResponse -> log.info(
+                                "✅ [ExternalMediaStorageService] Upload réussi. URL: {}, URI: {}",
+                                uploadResponse.getUrl(), uploadResponse.getUri()))
+                        .onErrorResume(e -> {
+                            log.error(
+                                    "[ExternalMediaStorageService] Erreur fatale dans la chaîne de traitement de l'upload: {}",
+                                    e.getMessage(), e);
+                            return Mono
+                                    .error(new RuntimeException("Échec de l'upload de fichier: " + e.getMessage(), e));
+                        }));
+    }
+
+    @Override
+    public Mono<Void> deleteFile(String mediaUri) {
+        log.info("[ExternalMediaStorageService] Suppression du fichier via l'API externe: {}", mediaUri);
+
+        try {
+            URI uri = new URI(mediaUri);
+            String path = uri.getPath();
+
+            String[] segments = path.split("/");
+            // On s'attend à ce que l'URI après /media-service/ soit de la forme:
+            // /service/type/path/resource_id/filename.jpg
+            // ex: /product/image/avatars/user_id_uuid/unique_filename.jpg
+            if (segments.length < 6) { // "", "service", "type", "path", "resource_id", "filename"
+                log.error(
+                        "URI de média invalide pour la suppression (segments insuffisants): {}. Attendu au moins 6 segments.",
+                        mediaUri);
+                return Mono.error(new IllegalArgumentException("URI de média invalide pour la suppression: " + mediaUri
+                        + ". Format attendu: /service/type/{path}/{resource_id}/filename"));
+            }
+
+            String service = segments[1]; // ex: "product"
+            String type = segments[2]; // ex: "image"
+            String pathSegment = segments[3]; // ex: "avatars"
+            String resourceIdSegment = segments[4]; // ex: "user_id_uuid"
+            String filename = segments[5]; // ex: "unique_filename.jpg"
+
+            // ---------- CORRECTION DE LA CONSTRUCTION DE L'URI POUR DELETE ----------
+            // L'API DELETE attend: /media/{service}/{type}/{path}/{filename}
+            // où {path} représente le chemin complet jusqu'au dossier du fichier, SANS le
+            // nom de fichier.
+            // Donc, notre {path} doit être "avatars/user_id_uuid"
+            String fullPathForDelete = String.format("%s/%s", pathSegment, resourceIdSegment); // Ceci crée
+                                                                                               // "avatars/user_id_uuid"
+            // -------------------------------------------------------------------
+
+            String apiUrl = String.format("/media/%s/%s/%s/%s", service, type, fullPathForDelete, filename);
+
+            log.info("[ExternalMediaStorageService] URI de l'API externe pour DELETE : {}", apiUrl);
+
+            return getM2MBearerToken()
+                    .flatMap(m2mBearerToken -> externalMediaServiceWebClient.delete()
+                            .uri(apiUrl)
+                            .header(HttpHeaders.AUTHORIZATION, m2mBearerToken)
+                            .retrieve()
+                            .onStatus(HttpStatusCode::isError, response -> response.bodyToMono(String.class)
+                                    .flatMap(errorBody -> {
+                                        log.error(
+                                                "❌ Erreur HTTP lors de la suppression de l'API externe (Status: {}): {}",
+                                                response.statusCode(), errorBody);
+                                        return Mono.just(new RuntimeException(
+                                                "Échec de la suppression du fichier sur le service de médias externe: "
+                                                        + errorBody));
+                                    })
+                                    .switchIfEmpty(Mono.defer(() -> Mono.just(new RuntimeException(
+                                            "Échec de la suppression du fichier sur le service de médias externe: corps d'erreur vide. Status: "
+                                                    + response.statusCode())))))
+                            .bodyToMono(Void.class)
+                            .doOnError(e -> log.error(
+                                    "[ExternalMediaStorageService] Erreur inattendue lors de la suppression de l'API externe : {}",
+                                    e.getMessage(), e)));
+
+        } catch (URISyntaxException e) {
+            log.error("URI de média invalide fournie pour la suppression: {}", mediaUri, e);
+            return Mono.error(new IllegalArgumentException("URI de média invalide: " + mediaUri, e));
+        }
+    }
+}// END OF FILE: src/main/java/com/freelance/driver_backend/service/internal/ExternalMediaStorageService.java
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/internal/ResourceServiceLocalImpl.java
 
@@ -9733,7 +10271,7 @@ public class LoginService {
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/NotificationTriggerService.java
 
-package com.freelance.driver_backend.service;
+/*package com.freelance.driver_backend.service;
 
 import com.freelance.driver_backend.dto.external.NotificationRequest;
 import com.freelance.driver_backend.model.DeviceToken;
@@ -9743,13 +10281,14 @@ import com.freelance.driver_backend.repository.ClientProfileRepository;
 import com.freelance.driver_backend.repository.DeviceTokenRepository;
 import com.freelance.driver_backend.repository.DriverProfileRepository;
 import com.freelance.driver_backend.service.external.NotificationService;
-import io.github.cdimascio.dotenv.Dotenv; // <-- NOUVEL IMPORT
+import io.github.cdimascio.dotenv.Dotenv;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap; // <-- NOUVEL IMPORT
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -9760,23 +10299,18 @@ import java.util.stream.Collectors;
 @Slf4j
 public class NotificationTriggerService {
 
-    // --- Dépendances ---
     private final ClientProfileRepository clientProfileRepository;
     private final DriverProfileRepository driverProfileRepository;
     private final DeviceTokenRepository deviceTokenRepository;
     private final NotificationService notificationService;
-    private final Dotenv dotenv; // <-- INJECTION DE DOTENV POUR LIRE LE FICHIER .env
+    private final Dotenv dotenv;
 
-    // --- Les IDs de templates ne sont plus des constantes fixes dans ce fichier ---
-
-    /**
-     * Notifie un client que son annonce a été acceptée par un chauffeur.
-     */
+    
     public Mono<Void> notifyClientOfAcceptedAnnouncement(Product announcement, DriverProfile driverProfile) {
         UUID targetClientId = announcement.getClientId();
         if (targetClientId == null) return Mono.empty();
         
-        log.info("Déclenchement de la notification pour le client {} (annonce acceptée)", targetClientId);
+        log.info("Déclenchement de la notification pour le client {} (postulation par chauffeur {}) pour l'annonce {}.", targetClientId, driverProfile.getUserId(), announcement.getName());
 
         return deviceTokenRepository.findByUserId(targetClientId)
             .map(DeviceToken::getToken)
@@ -9787,19 +10321,295 @@ public class NotificationTriggerService {
                     return Mono.empty();
                 }
                 
-                // On lit l'ID du template dynamiquement depuis le fichier .env
                 UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_ANNOUNCEMENT_ACCEPTED_ID"));
+                
+                // --- AJOUT DU PAYLOAD DE DONNÉES POUR LE ROUTAGE FRONTEND ---
+                Map<String, String> dataPayload = new HashMap<>();
+                dataPayload.put("screen", "DriverDetails"); // Nom de l'écran cible dans le frontend
+                dataPayload.put("driverId", driverProfile.getUserId().toString());
+                dataPayload.put("announcementId", announcement.getId().toString()); // L'ID de l'annonce en question
+                dataPayload.put("source", "notification"); // Pour indiquer la provenance
+                // -----------------------------------------------------------
+
+                NotificationRequest request = NotificationRequest.builder()
+                    .templateId(templateId)
+                    .recipients(tokens)
+                    .metadata(Map.of(
+                        "driverName", driverProfile.getFirstName() + " " + driverProfile.getLastName(),
+                        "tripTitle", announcement.getName(),
+                        "driverId", driverProfile.getUserId().toString() 
+                    ))
+                    .data(dataPayload) // <-- AJOUT DU DATA PAYLOAD
+                    .build();
+                
+                return notificationService.sendPushNotification(announcement.getOrganizationId(), request, null, null);
+            })
+            .then();
+    }
+
+    
+    public Mono<Void> notifyDriverOfConfirmedAnnouncement(Product announcement, DriverProfile driverProfile) {
+        UUID targetDriverId = driverProfile.getUserId();
+        if (targetDriverId == null) return Mono.empty();
+
+        log.info("Déclenchement de la notification pour le chauffeur {} (postulation ACCEPTÉE) pour l'annonce {}.", targetDriverId, announcement.getName());
+
+        return deviceTokenRepository.findByUserId(targetDriverId)
+            .map(DeviceToken::getToken)
+            .collectList()
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour le chauffeur {}.", targetDriverId);
+                    return Mono.empty();
+                }
+
+                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_ANNOUNCEMENT_CONFIRMED_ID")); 
+                
+                return clientProfileRepository.findByUserId(announcement.getClientId())
+                    .flatMap(clientProfile -> {
+                        // --- AJOUT DU PAYLOAD DE DONNÉES POUR LE ROUTAGE FRONTEND ---
+                        Map<String, String> dataPayload = new HashMap<>();
+                        dataPayload.put("screen", "MyAcceptedRides"); // Exemple: écran où le chauffeur voit ses courses acceptées
+                        dataPayload.put("tripId", announcement.getId().toString());
+                        dataPayload.put("source", "notification");
+                        // -----------------------------------------------------------
+
+                        NotificationRequest request = NotificationRequest.builder()
+                            .templateId(templateId)
+                            .recipients(tokens)
+                            .metadata(Map.of(
+                                "clientName", clientProfile.getFirstName() + " " + clientProfile.getLastName(),
+                                "tripTitle", announcement.getName(),
+                                "tripId", announcement.getId().toString()
+                            ))
+                            .data(dataPayload) // <-- AJOUT DU DATA PAYLOAD
+                            .build();
+                        return notificationService.sendPushNotification(announcement.getOrganizationId(), request, null, null);
+                    })
+                    .then();
+            })
+            .then();
+    }
+    
+    
+    public Mono<Void> notifyAllClientsOfNewPlanning(Product planning) {
+        log.info("Déclenchement des notifications à tous les clients pour le nouveau planning: {}", planning.getName());
+        
+        UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_NEW_PLANNING_ID"));
+        
+        return clientProfileRepository.findAll()
+            .map(client -> client.getUserId())
+            .collectList()
+            .flatMap(clientIds -> this.sendBroadcastNotification(
+                clientIds, 
+                templateId, 
+                planning.getOrganizationId(), 
+                Map.of(
+                    "driverName", planning.getClientName(),
+                    "destination", planning.getDropoffLocation(),
+                    "cost", planning.getDefaultSellPrice() != null ? planning.getDefaultSellPrice().toString() : "0"
+                )
+            )).then();
+    }
+
+    
+    public Mono<Void> notifyAllDriversOfNewAnnouncement(Product announcement) {
+        log.info("Déclenchement des notifications à tous les chauffeurs pour la nouvelle annonce: {}", announcement.getName());
+        
+        UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_NEW_ANNOUNCEMENT_ID"));
+        
+        return driverProfileRepository.findAll()
+            .map(driver -> driver.getUserId())
+            .collectList()
+            .flatMap(driverIds -> this.sendBroadcastNotification(
+                driverIds, 
+                templateId, 
+                announcement.getOrganizationId(), 
+                Map.of("tripTitle", announcement.getName())
+            )).then();
+    }
+    
+    
+    private Mono<Boolean> sendBroadcastNotification(List<UUID> userIds, UUID templateId, UUID organizationId, Map<String, String> metadata) {
+        if (userIds.isEmpty()) {
+            log.warn("La liste d'utilisateurs à notifier est vide. Annulation.");
+            return Mono.just(true);
+        }
+        return Flux.fromIterable(userIds)
+            .flatMap(deviceTokenRepository::findByUserId)
+            .map(DeviceToken::getToken)
+            .collect(Collectors.toSet())
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour la liste d'utilisateurs.");
+                    return Mono.just(true);
+                }
+                log.info("Envoi de la notification (template {}) à {} appareils.", templateId, tokens.size());
+                NotificationRequest request = NotificationRequest.builder()
+                    .templateId(templateId)
+                    .recipients(List.copyOf(tokens))
+                    .metadata(metadata)
+                    .build();
+                return notificationService.sendPushNotification(organizationId, request, null, null);
+            });
+    }
+}*/
+
+
+package com.freelance.driver_backend.service;
+
+import com.freelance.driver_backend.dto.external.NotificationRequest;
+import com.freelance.driver_backend.model.DeviceToken;
+import com.freelance.driver_backend.model.DriverProfile;
+import com.freelance.driver_backend.model.Product;
+import com.freelance.driver_backend.repository.ClientProfileRepository;
+import com.freelance.driver_backend.repository.DeviceTokenRepository;
+import com.freelance.driver_backend.repository.DriverProfileRepository;
+import com.freelance.driver_backend.service.external.NotificationService;
+import io.github.cdimascio.dotenv.Dotenv;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class NotificationTriggerService {
+
+    private final ClientProfileRepository clientProfileRepository;
+    private final DriverProfileRepository driverProfileRepository;
+    private final DeviceTokenRepository deviceTokenRepository;
+    private final NotificationService notificationService;
+    private final Dotenv dotenv;
+
+    /**
+     * Notifie un client qu'un chauffeur a postulé à son annonce.
+     */
+    public Mono<Void> notifyClientOfAcceptedAnnouncement(Product announcement, DriverProfile driverProfile) {
+        UUID targetClientId = announcement.getClientId();
+        if (targetClientId == null) return Mono.empty();
+        
+        log.info("Déclenchement de la notification pour le client {} (postulation par chauffeur {}) pour l'annonce {}.", targetClientId, driverProfile.getUserId(), announcement.getName());
+
+        return deviceTokenRepository.findByUserId(targetClientId)
+            .map(DeviceToken::getToken)
+            .collectList()
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour le client {}.", targetClientId);
+                    return Mono.empty();
+                }
+                
+                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_ANNOUNCEMENT_ACCEPTED_ID"));
+                
+                Map<String, String> dataPayload = new HashMap<>();
+                dataPayload.put("screen", "DriverDetails");
+                dataPayload.put("driverId", driverProfile.getUserId().toString());
+                dataPayload.put("announcementId", announcement.getId().toString());
+                dataPayload.put("source", "notification");
                 
                 NotificationRequest request = NotificationRequest.builder()
                     .templateId(templateId)
                     .recipients(tokens)
                     .metadata(Map.of(
-                        "driverName", driverProfile.getFirstName(),
+                        "driverName", driverProfile.getFirstName() + " " + driverProfile.getLastName(),
                         "tripTitle", announcement.getName(),
                         "driverId", driverProfile.getUserId().toString() 
                     ))
+                    .data(dataPayload)
                     .build();
                 
+                return notificationService.sendPushNotification(announcement.getOrganizationId(), request, null, null);
+            })
+            .then();
+    }
+
+    /**
+     * Notifie un chauffeur que sa postulation a été acceptée par le client.
+     */
+    public Mono<Void> notifyDriverOfConfirmedAnnouncement(Product announcement, DriverProfile driverProfile) {
+        UUID targetDriverId = driverProfile.getUserId();
+        if (targetDriverId == null) return Mono.empty();
+
+        log.info("Déclenchement de la notification pour le chauffeur {} (postulation ACCEPTÉE) pour l'annonce {}.", targetDriverId, announcement.getName());
+
+        return deviceTokenRepository.findByUserId(targetDriverId)
+            .map(DeviceToken::getToken)
+            .collectList()
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour le chauffeur {}.", targetDriverId);
+                    return Mono.empty();
+                }
+
+                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_ANNOUNCEMENT_CONFIRMED_ID")); 
+                
+                return clientProfileRepository.findByUserId(announcement.getClientId())
+                    .flatMap(clientProfile -> {
+                        Map<String, String> dataPayload = new HashMap<>();
+                        dataPayload.put("screen", "MyAcceptedRides"); 
+                        dataPayload.put("tripId", announcement.getId().toString());
+                        dataPayload.put("source", "notification");
+
+                        NotificationRequest request = NotificationRequest.builder()
+                            .templateId(templateId)
+                            .recipients(tokens)
+                            .metadata(Map.of(
+                                "clientName", clientProfile.getFirstName() + " " + clientProfile.getLastName(),
+                                "tripTitle", announcement.getName(),
+                                "tripId", announcement.getId().toString()
+                            ))
+                            .data(dataPayload)
+                            .build();
+                        return notificationService.sendPushNotification(announcement.getOrganizationId(), request, null, null);
+                    })
+                    .then();
+            })
+            .then();
+    }
+
+    /**
+     * NOUVELLE FONCTION : Notifie le client qu'un chauffeur a annulé sa postulation.
+     */
+    public Mono<Void> notifyClientOfCancelledPostulation(Product announcement, DriverProfile driverProfile) {
+        UUID targetClientId = announcement.getClientId();
+        if (targetClientId == null) return Mono.empty();
+
+        log.info("Déclenchement de la notification pour le client {} (postulation ANNULÉE par chauffeur {}) pour l'annonce {}.", targetClientId, driverProfile.getUserId(), announcement.getName());
+
+        return deviceTokenRepository.findByUserId(targetClientId)
+            .map(DeviceToken::getToken)
+            .collectList()
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour le client {}.", targetClientId);
+                    return Mono.empty();
+                }
+
+                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_POSTULATION_CANCELLED_ID")); // <-- NOUVEAU TEMPLATE ID
+                
+                Map<String, String> dataPayload = new HashMap<>();
+                dataPayload.put("screen", "MyAnnouncements"); // Écran où le client voit ses annonces
+                dataPayload.put("announcementId", announcement.getId().toString());
+                dataPayload.put("source", "notification");
+
+                NotificationRequest request = NotificationRequest.builder()
+                    .templateId(templateId)
+                    .recipients(tokens)
+                    .metadata(Map.of(
+                        "driverName", driverProfile.getFirstName() + " " + driverProfile.getLastName(),
+                        "tripTitle", announcement.getName()
+                    ))
+                    .data(dataPayload)
+                    .build();
                 return notificationService.sendPushNotification(announcement.getOrganizationId(), request, null, null);
             })
             .then();
@@ -9811,7 +10621,6 @@ public class NotificationTriggerService {
     public Mono<Void> notifyAllClientsOfNewPlanning(Product planning) {
         log.info("Déclenchement des notifications à tous les clients pour le nouveau planning: {}", planning.getName());
         
-        // On lit l'ID du template dynamiquement depuis le fichier .env
         UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_NEW_PLANNING_ID"));
         
         return clientProfileRepository.findAll()
@@ -9835,7 +10644,6 @@ public class NotificationTriggerService {
     public Mono<Void> notifyAllDriversOfNewAnnouncement(Product announcement) {
         log.info("Déclenchement des notifications à tous les chauffeurs pour la nouvelle annonce: {}", announcement.getName());
         
-        // On lit l'ID du template dynamiquement depuis le fichier .env
         UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_NEW_ANNOUNCEMENT_ID"));
         
         return driverProfileRepository.findAll()
@@ -9872,7 +10680,8 @@ public class NotificationTriggerService {
                     .recipients(List.copyOf(tokens))
                     .metadata(metadata)
                     .build();
-                return notificationService.sendPushNotification(organizationId, request, null, null);
+                // Assurez-vous que sendPushNotification peut prendre le dataPayload si nécessaire
+                return notificationService.sendPushNotification(organizationId, request, null, null); 
             });
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/NotificationTriggerService.java
@@ -10191,7 +11000,7 @@ public class OnboardingService {
 
 // PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/ProfileService.java
 
-package com.freelance.driver_backend.service;
+/*package com.freelance.driver_backend.service;
 
 import com.freelance.driver_backend.dto.UserSessionContextDto;
 import com.freelance.driver_backend.dto.external.OrganisationDto;
@@ -10427,6 +11236,477 @@ public class ProfileService {
             return null;
         }
     }
+}*/
+
+package com.freelance.driver_backend.service;
+
+import com.freelance.driver_backend.dto.UserSessionContextDto;
+import com.freelance.driver_backend.dto.external.OrganisationDto;
+import com.freelance.driver_backend.model.ClientProfile;
+import com.freelance.driver_backend.model.DriverProfile;
+import com.freelance.driver_backend.repository.ClientProfileRepository;
+import com.freelance.driver_backend.repository.DriverProfileRepository;
+import com.freelance.driver_backend.service.external.OrganisationService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+import java.net.URI;
+import java.net.URISyntaxException;
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+public class ProfileService {
+
+    private final DriverProfileRepository driverProfileRepository;
+    private final ClientProfileRepository clientProfileRepository;
+    private final OrganisationService organisationService;
+    private final StorageService storageService;
+
+    public Mono<UserSessionContextDto> getUserSessionContext(UUID userId, String userBearerToken, String publicKey) {
+        log.info("ProfileService: Recherche du contexte pour l'utilisateur ID: {}", userId);
+
+        Mono<DriverProfile> driverProfileMono = driverProfileRepository.findByUserId(userId)
+                .doOnNext(
+                        dp -> log.info("DEBUG_CONTEXT: findByUserId(DRIVER) a retourné un profil. ID: {}", dp.getId()))
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("DEBUG_CONTEXT: findByUserId(DRIVER) a retourné vide. Retourne DriverProfile vide.");
+                    return Mono.just(new DriverProfile());
+                }));
+
+        Mono<ClientProfile> clientProfileMono = clientProfileRepository.findByUserId(userId)
+                .doOnNext(
+                        cp -> log.info("DEBUG_CONTEXT: findByUserId(CLIENT) a retourné un profil. ID: {}", cp.getId()))
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("DEBUG_CONTEXT: findByUserId(CLIENT) a retourné vide. Retourne ClientProfile vide.");
+                    return Mono.just(new ClientProfile());
+                }));
+
+        return Mono.zip(driverProfileMono, clientProfileMono)
+                .flatMap(tuple -> {
+                    DriverProfile driverProfile = tuple.getT1();
+                    ClientProfile clientProfile = tuple.getT2();
+
+                    List<UserSessionContextDto.UserRole> roles = new ArrayList<>();
+                    OrganisationDto primaryOrganisation = null;
+
+                    log.info("DEBUG_CONTEXT: driverProfile.getId() obtenu dans tuple: {}", driverProfile.getId());
+                    log.info("DEBUG_CONTEXT: clientProfile.getId() obtenu dans tuple: {}", clientProfile.getId());
+
+                    if (driverProfile != null && driverProfile.getId() != null) {
+                        roles.add(UserSessionContextDto.UserRole.DRIVER);
+                        if (driverProfile.getOrganisationId() != null) {
+                            primaryOrganisation = createMockOrganisationDto(driverProfile.getOrganisationId(),
+                                    driverProfile.getFirstName() + "'s Driving Business");
+                        }
+                    }
+                    if (clientProfile != null && clientProfile.getId() != null) {
+                        roles.add(UserSessionContextDto.UserRole.CLIENT);
+                        if (primaryOrganisation == null && clientProfile.getOrganisationId() != null) {
+                            primaryOrganisation = createMockOrganisationDto(clientProfile.getOrganisationId(),
+                                    clientProfile.getCompanyName());
+                        }
+                    }
+
+                    if (roles.isEmpty()) {
+                        roles.add(UserSessionContextDto.UserRole.NO_PROFILE);
+                        log.warn(
+                                "ProfileService: Aucun profil (driver ou client) trouvé pour l'utilisateur {}. Renvoi du statut NO_PROFILE.",
+                                userId);
+                    } else {
+                        log.info("ProfileService: Profil(s) trouvé(s) pour l'utilisateur {}. Rôles: {}", userId, roles);
+                    }
+
+                    return Mono.just(UserSessionContextDto.builder()
+                            .userId(userId)
+                            .roles(roles)
+                            .driverProfile(
+                                    driverProfile != null && driverProfile.getId() != null ? driverProfile : null)
+                            .clientProfile(
+                                    clientProfile != null && clientProfile.getId() != null ? clientProfile : null)
+                            .organisation(primaryOrganisation)
+                            .build());
+                });
+    }
+
+    private OrganisationDto createMockOrganisationDto(UUID orgId, String name) {
+        OrganisationDto orgDto = new OrganisationDto();
+        orgDto.setOrganizationId(orgId);
+        orgDto.setLongName(name);
+        orgDto.setStatus("ACTIVE");
+        return orgDto;
+    }
+
+    public Mono<UUID> findOrganisationIdByUserId(UUID userId) {
+        log.info("Recherche de l'ID d'organisation pour l'utilisateur ID: {}", userId);
+        return driverProfileRepository.findByUserId(userId)
+                .map(DriverProfile::getOrganisationId)
+                .switchIfEmpty(Mono.defer(() -> clientProfileRepository.findByUserId(userId)
+                        .map(ClientProfile::getOrganisationId)))
+                .switchIfEmpty(Mono.error(new RuntimeException(
+                        "Aucun profil (conducteur ou client) trouvé pour l'utilisateur " + userId)));
+    }
+
+    public Mono<DriverProfile> findDriverById(UUID driverId) {
+        log.info("Recherche du profil pour le chauffeur ID: {}", driverId);
+        return driverProfileRepository.findByUserId(driverId)
+                .doOnNext(dp -> log.info("✅ Profil DRIVER trouvé par findDriverById pour userId: {}. Détails: {}",
+                        driverId, dp))
+                .doOnError(e -> log.error("❌ Erreur lors de la recherche du profil DRIVER pour userId {}: {}", driverId,
+                        e.getMessage()))
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("⚠️ Aucun profil DRIVER trouvé par findDriverById pour userId: {}. (Mono.empty)",
+                            driverId);
+                    return Mono.empty();
+                }));
+    }
+
+    public Mono<ClientProfile> findClientById(UUID clientId) {
+        log.info("Recherche du profil pour le client ID: {}", clientId);
+        return clientProfileRepository.findByUserId(clientId)
+                .doOnNext(cp -> log.info("✅ Profil CLIENT trouvé par findClientById pour userId: {}. Détails: {}",
+                        clientId, cp))
+                .doOnError(e -> log.error("❌ Erreur lors de la recherche du profil CLIENT pour userId {}: {}", clientId,
+                        e.getMessage()))
+                .switchIfEmpty(Mono.defer(() -> {
+                    log.warn("⚠️ Aucun profil CLIENT trouvé par findClientById pour userId: {}. (Mono.empty)",
+                            clientId);
+                    return Mono.empty();
+                }));
+    }
+
+    // --- LOGIQUE DE MISE À JOUR POUR LES CHAMPS COMMUNS ---
+    private <T extends DriverProfile> Mono<T> updateCommonDriverFields(T existingProfile, DriverProfile updatedData) {
+        if (updatedData.getFirstName() != null)
+            existingProfile.setFirstName(updatedData.getFirstName());
+        if (updatedData.getLastName() != null)
+            existingProfile.setLastName(updatedData.getLastName());
+        if (updatedData.getPhoneNumber() != null)
+            existingProfile.setPhoneNumber(updatedData.getPhoneNumber());
+        if (updatedData.getNickname() != null)
+            existingProfile.setNickname(updatedData.getNickname());
+        if (updatedData.getBirthDate() != null)
+            existingProfile.setBirthDate(updatedData.getBirthDate());
+        if (updatedData.getNationality() != null)
+            existingProfile.setNationality(updatedData.getNationality());
+        if (updatedData.getGender() != null)
+            existingProfile.setGender(updatedData.getGender());
+        if (updatedData.getLanguage() != null)
+            existingProfile.setLanguage(updatedData.getLanguage());
+        // Note: profileImageUrl est géré par updateAvatarUrl, pas ici directement.
+        return Mono.just(existingProfile);
+    }
+
+    private <T extends ClientProfile> Mono<T> updateCommonClientFields(T existingProfile, ClientProfile updatedData) {
+        if (updatedData.getFirstName() != null)
+            existingProfile.setFirstName(updatedData.getFirstName());
+        if (updatedData.getLastName() != null)
+            existingProfile.setLastName(updatedData.getLastName());
+        if (updatedData.getPhoneNumber() != null)
+            existingProfile.setPhoneNumber(updatedData.getPhoneNumber());
+        if (updatedData.getNickname() != null)
+            existingProfile.setNickname(updatedData.getNickname());
+        if (updatedData.getBirthDate() != null)
+            existingProfile.setBirthDate(updatedData.getBirthDate());
+        if (updatedData.getNationality() != null)
+            existingProfile.setNationality(updatedData.getNationality());
+        if (updatedData.getGender() != null)
+            existingProfile.setGender(updatedData.getGender());
+        if (updatedData.getLanguage() != null)
+            existingProfile.setLanguage(updatedData.getLanguage());
+        // Note: profileImageUrl est géré par updateAvatarUrl, pas ici directement.
+        // contactEmail, companyName sont spécifiques au Client, et déjà gérés dans
+        // updateClientProfile
+        return Mono.just(existingProfile);
+    }
+
+    public Mono<UserSessionContextDto> updateDriverProfile(UUID userId, DriverProfile updatedData) {
+        return driverProfileRepository.findByUserId(userId)
+                .flatMap(existingDriverProfile -> {
+                    log.info("Mise à jour du profil DRIVER pour l'utilisateur ID: {}", userId);
+
+                    // 1. Mettre à jour les champs communs dans le DriverProfile existant
+                    // Puis mettre à jour les champs spécifiques au Driver
+                    return updateCommonDriverFields(existingDriverProfile, updatedData)
+                            .flatMap(profile -> {
+                                if (updatedData.getBiography() != null)
+                                    profile.setBiography(updatedData.getBiography());
+                                if (updatedData.getVehicleDetails() != null)
+                                    profile.setVehicleDetails(updatedData.getVehicleDetails());
+                                if (updatedData.getLicenseNumber() != null)
+                                    profile.setLicenseNumber(updatedData.getLicenseNumber());
+                                return driverProfileRepository.save(profile)
+                                        .doOnSuccess(
+                                                dp -> log.info("✅ DriverProfile mis à jour pour userId: {}", userId))
+                                        .doOnError(e -> log.error(
+                                                "❌ Échec de la mise à jour du DriverProfile pour userId {}: {}", userId,
+                                                e.getMessage()));
+                            })
+                            // 2. Synchroniser les champs communs vers le ClientProfile (s'il existe)
+                            .then(clientProfileRepository.findByUserId(userId)
+                                    .flatMap(existingClientProfile -> updateCommonClientFields(existingClientProfile,
+                                            new ClientProfile() {
+                                                { // Crée un ClientProfile "factice" avec les données de updatedData
+                                                  // pour la synchronisation
+                                                    setFirstName(updatedData.getFirstName());
+                                                    setLastName(updatedData.getLastName());
+                                                    setPhoneNumber(updatedData.getPhoneNumber());
+                                                    setNickname(updatedData.getNickname());
+                                                    setBirthDate(updatedData.getBirthDate());
+                                                    setNationality(updatedData.getNationality());
+                                                    setGender(updatedData.getGender());
+                                                    setLanguage(updatedData.getLanguage());
+                                                }
+                                            })
+                                            .flatMap(profile -> clientProfileRepository.save(profile))
+                                            .doOnSuccess(cp -> log.info(
+                                                    "✅ ClientProfile synchronisé depuis DriverProfile pour userId: {}",
+                                                    userId))
+                                            .doOnError(e -> log.error(
+                                                    "❌ Échec de la synchronisation du ClientProfile depuis DriverProfile pour userId {}: {}",
+                                                    userId, e.getMessage())))
+                                    .then() // Transformer en Mono<Void>
+                                    .switchIfEmpty(Mono.defer(() -> {
+                                        log.info("Pas de ClientProfile à synchroniser pour l'utilisateur {}.", userId);
+                                        return Mono.empty();
+                                    })))
+                            // 3. Après toutes les mises à jour, récupérer le contexte complet
+                            .then(Mono.defer(() -> getUserSessionContext(userId, null, null)));
+                })
+                .switchIfEmpty(Mono.defer(() -> { // Gérer le cas où aucun DriverProfile n'est trouvé
+                    log.warn("Tentative de mise à jour DriverProfile pour userId {} mais aucun DriverProfile trouvé.",
+                            userId);
+                    return Mono
+                            .error(new IllegalStateException("DriverProfile non trouvé pour l'utilisateur " + userId));
+                }));
+    }
+
+    public Mono<UserSessionContextDto> updateClientProfile(UUID userId, ClientProfile updatedData) { // Changement du
+                                                                                                     // type de retour
+        return clientProfileRepository.findByUserId(userId)
+                .flatMap(existingClientProfile -> {
+                    log.info("Mise à jour du profil CLIENT pour l'utilisateur ID: {}", userId);
+
+                    // 1. Mettre à jour les champs communs dans le ClientProfile existant
+                    // Puis mettre à jour les champs spécifiques au Client
+                    return updateCommonClientFields(existingClientProfile, updatedData)
+                            .flatMap(profile -> {
+                                if (updatedData.getCompanyName() != null)
+                                    profile.setCompanyName(updatedData.getCompanyName());
+                                if (updatedData.getContactEmail() != null)
+                                    profile.setContactEmail(updatedData.getContactEmail());
+                                return clientProfileRepository.save(profile)
+                                        .doOnSuccess(
+                                                cp -> log.info("✅ ClientProfile mis à jour pour userId: {}", userId))
+                                        .doOnError(e -> log.error(
+                                                "❌ Échec de la mise à jour du ClientProfile pour userId {}: {}", userId,
+                                                e.getMessage()));
+                            })
+                            // 2. Synchroniser les champs communs vers le DriverProfile (s'il existe)
+                            .then(driverProfileRepository.findByUserId(userId)
+                                    .flatMap(existingDriverProfile -> updateCommonDriverFields(existingDriverProfile,
+                                            new DriverProfile() {
+                                                { // Crée un DriverProfile "factice" avec les données de updatedData
+                                                  // pour la synchronisation
+                                                    setFirstName(updatedData.getFirstName());
+                                                    setLastName(updatedData.getLastName());
+                                                    setPhoneNumber(updatedData.getPhoneNumber());
+                                                    setNickname(updatedData.getNickname());
+                                                    setBirthDate(updatedData.getBirthDate());
+                                                    setNationality(updatedData.getNationality());
+                                                    setGender(updatedData.getGender());
+                                                    setLanguage(updatedData.getLanguage());
+                                                }
+                                            })
+                                            .flatMap(profile -> driverProfileRepository.save(profile))
+                                            .doOnSuccess(dp -> log.info(
+                                                    "✅ DriverProfile synchronisé depuis ClientProfile pour userId: {}",
+                                                    userId))
+                                            .doOnError(e -> log.error(
+                                                    "❌ Échec de la synchronisation du DriverProfile depuis ClientProfile pour userId {}: {}",
+                                                    userId, e.getMessage())))
+                                    .then() // Transformer en Mono<Void>
+                                    .switchIfEmpty(Mono.defer(() -> {
+                                        log.info("Pas de DriverProfile à synchroniser pour l'utilisateur {}.", userId);
+                                        return Mono.empty();
+                                    })))
+                            // 3. Après toutes les mises à jour, récupérer le contexte complet
+                            .then(Mono.defer(() -> getUserSessionContext(userId, null, null)));
+                })
+                .switchIfEmpty(Mono.defer(() -> { // Gérer le cas où aucun ClientProfile n'est trouvé
+                    log.warn("Tentative de mise à jour ClientProfile pour userId {} mais aucun ClientProfile trouvé.",
+                            userId);
+                    return Mono
+                            .error(new IllegalStateException("ClientProfile non trouvé pour l'utilisateur " + userId));
+                }));
+    }
+
+    /**
+     * Met à jour l'URL de l'avatar pour TOUS les profils (Driver et Client) de
+     * l'utilisateur spécifié,
+     * S'ILS EXISTENT.
+     * Si un ancien avatar existe (sur n'importe quel profil), il est supprimé du
+     * stockage externe.
+     *
+     * @param userId       L'ID de l'utilisateur.
+     * @param newAvatarUrl L'URL publique du nouvel avatar.
+     * @return Un Mono<UserSessionContextDto> contenant le contexte mis à jour de
+     *         l'utilisateur.
+     */
+    public Mono<UserSessionContextDto> updateAvatarUrl(UUID userId, String newAvatarUrl) {
+        // Étape 1: Déterminer l'ancienne URI de l'avatar pour la suppression (peut
+        // provenir de n'importe quel profil)
+        Mono<Void> deleteOldAvatarAction = findProfileByUserId(userId) // Obtient le premier profil trouvé
+                .flatMap(profile -> {
+                    String oldUrl = getAvatarUrlFromProfile(profile);
+                    if (oldUrl != null && !oldUrl.isEmpty() && !oldUrl.equals(newAvatarUrl)) {
+                        log.info("Ancien avatar trouvé pour suppression : {}", oldUrl);
+                        String oldUri = extractUriFromUrl(oldUrl); // Assurez-vous que oldUri est le bon chemin pour la
+                                                                   // suppression
+                        if (oldUri != null) {
+                            return storageService.deleteFile(oldUri)
+                                    .onErrorResume(e -> {
+                                        log.error("Échec de la suppression de l'ancien avatar {}: {}", oldUri,
+                                                e.getMessage());
+                                        return Mono.empty(); // Ne pas bloquer la mise à jour si la suppression échoue
+                                    });
+                        }
+                    }
+                    return Mono.empty(); // Pas d'ancien avatar ou le même avatar, pas de suppression nécessaire
+                })
+                .then(); // Attendre la fin de l'action de suppression (peut être vide)
+
+        // Étape 2: Mettre à jour le DriverProfile (s'il existe)
+        Mono<Void> updateDriverAvatarMono = driverProfileRepository.findByUserId(userId)
+                .flatMap(driverProfile -> {
+                    driverProfile.setProfileImageUrl(newAvatarUrl);
+                    return driverProfileRepository.save(driverProfile)
+                            .doOnSuccess(dp -> log.info("✅ DriverProfile.profileImageUrl mis à jour pour userId: {}",
+                                    userId))
+                            .doOnError(e -> log.error(
+                                    "❌ Échec de la mise à jour DriverProfile.profileImageUrl pour userId {}: {}",
+                                    userId, e.getMessage()))
+                            .then(); // Transformer en Mono<Void>
+                })
+                .switchIfEmpty(Mono.defer(() -> { // S'il n'y a pas de DriverProfile, renvoyer un Mono<Void> vide
+                    log.info(
+                            "Pas de DriverProfile trouvé pour l'utilisateur {}. Pas de mise à jour de l'avatar Driver.",
+                            userId);
+                    return Mono.empty();
+                }));
+
+        // Étape 3: Mettre à jour le ClientProfile (s'il existe)
+        Mono<Void> updateClientAvatarMono = clientProfileRepository.findByUserId(userId)
+                .flatMap(clientProfile -> {
+                    clientProfile.setProfileImageUrl(newAvatarUrl);
+                    return clientProfileRepository.save(clientProfile)
+                            .doOnSuccess(cp -> log.info("✅ ClientProfile.profileImageUrl mis à jour pour userId: {}",
+                                    userId))
+                            .doOnError(e -> log.error(
+                                    "❌ Échec de la mise à jour ClientProfile.profileImageUrl pour userId {}: {}",
+                                    userId, e.getMessage()))
+                            .then(); // Transformer en Mono<Void>
+                })
+                .switchIfEmpty(Mono.defer(() -> { // S'il n'y a pas de ClientProfile, renvoyer un Mono<Void> vide
+                    log.info(
+                            "Pas de ClientProfile trouvé pour l'utilisateur {}. Pas de mise à jour de l'avatar Client.",
+                            userId);
+                    return Mono.empty();
+                }));
+
+        // Étape 4: Exécuter la suppression et les mises à jour de profils en parallèle
+        // Puis, récupérer le contexte complet
+        return deleteOldAvatarAction
+                .then(Mono.when(updateDriverAvatarMono, updateClientAvatarMono)) // Exécute les deux mises à jour en
+                                                                                 // parallèle
+                .then(Mono.defer(() -> { // Utilise Mono.defer pour s'assurer que getUserSessionContext est appelé après
+                                         // les mises à jour
+                    log.info(
+                            "✅ Avatar mis à jour pour l'utilisateur ID: {}. Récupération du contexte de session mis à jour.",
+                            userId);
+                    return getUserSessionContext(userId, null, null); // userBearerToken et publicKey ne sont pas
+                                                                      // nécessaires pour getUserSessionContext si les
+                                                                      // appels sous-jacents gèrent leur propre auth (ou
+                                                                      // mock)
+                }))
+                .switchIfEmpty(Mono.error(new IllegalStateException(
+                        "Aucun profil (Driver ou Client) trouvé ou mis à jour pour l'utilisateur ID: " + userId)))
+                .doOnError(e -> log.error("❌ Erreur finale dans updateAvatarUrl pour userId {}: {}", userId,
+                        e.getMessage()));
+    }
+
+    public String extractUriFromUrl(String fullUrl) {
+        try {
+            URI uri = new URI(fullUrl);
+            String path = uri.getPath();
+
+            String mediaServiceSegment = "/media-service";
+            int servicePathIndex = path.indexOf(mediaServiceSegment);
+            if (servicePathIndex != -1) {
+                return path.substring(servicePathIndex + mediaServiceSegment.length());
+            } else {
+                log.warn(
+                        "L'URL '{}' ne semble pas provenir du service de médias externe. La suppression ne sera pas tentée via l'API externe.",
+                        fullUrl);
+                return null;
+            }
+        } catch (URISyntaxException e) {
+            log.error("URL invalide, impossible d'extraire l'URI: {}", fullUrl, e);
+            return null;
+        }
+    }
+
+    public Mono<Object> findProfileByUserId(UUID userId) {
+        return driverProfileRepository.findByUserId(userId)
+                .cast(Object.class)
+                .switchIfEmpty(Mono.defer(() -> clientProfileRepository.findByUserId(userId).cast(Object.class)));
+    }
+
+    public String getAuthorFirstNameFromProfile(Object profile) {
+        if (profile instanceof DriverProfile) {
+            return ((DriverProfile) profile).getFirstName();
+        } else if (profile instanceof ClientProfile) {
+            return ((ClientProfile) profile).getFirstName();
+        }
+        return "Utilisateur";
+    }
+
+    public String getAuthorLastNameFromProfile(Object profile) {
+        if (profile instanceof DriverProfile) {
+            return ((DriverProfile) profile).getLastName();
+        } else if (profile instanceof ClientProfile) {
+            return ((ClientProfile) profile).getLastName();
+        }
+        return "Anonyme";
+    }
+
+    public String getAvatarUrlFromProfile(Object profile) {
+        if (profile instanceof DriverProfile) {
+            return ((DriverProfile) profile).getProfileImageUrl();
+        } else if (profile instanceof ClientProfile) {
+            return ((ClientProfile) profile).getProfileImageUrl();
+        }
+        return null;
+    }
+
+    /**
+     * Met à jour l'URL de l'avatar pour TOUS les profils (Driver et Client) de
+     * l'utilisateur spécifié,
+     * S'ILS EXISTENT.
+     * Si un ancien avatar existe (sur n'importe quel profil), il est supprimé du
+     * stockage externe.
+     *
+     * @param userId       L'ID de l'utilisateur.
+     * @param newAvatarUrl L'URL publique du nouvel avatar.
+     * @return Un Mono<UserSessionContextDto> contenant le contexte mis à jour de
+     *         l'utilisateur.
+     */
+
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/ProfileService.java
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/resource/MockResourceServiceImpl.java
@@ -10789,33 +12069,40 @@ public class SocketIOService {
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/StorageService.java
 
-// src/main/java/com/freelance/driver_backend/service/StorageService.java
-
 package com.freelance.driver_backend.service;
 
+import com.freelance.driver_backend.dto.external.UploadMediaResponse;
 import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Mono;
+import java.util.UUID;
 
 /**
  * Interface définissant les opérations pour un service de stockage de fichiers.
  */
 public interface StorageService {
-    
+
     /**
-     * Sauvegarde un fichier et renvoie son URL publique.
-     * @param basePath Le chemin de base où stocker le fichier (ex: "avatars/user-id").
-     * @param originalFileName Le nom de fichier original.
-     * @param file Le fichier à sauvegarder.
-     * @return Un Mono contenant l'URL publique du fichier sauvegardé.
+     * Sauvegarde un fichier et renvoie la réponse complète du service de médias, y compris son URL publique et son URI interne.
+     * Le service gérera l'obtention de son propre token d'authentification M2M.
+     *
+     * @param serviceContext     Le contexte de service pour l'API externe (ex: "product", "resource").
+     * @param frontendLogicalType Le type logique du frontend (ex: "avatars", "vehicles", "documents").
+     * @param uploaderUserId     L'ID de l'utilisateur qui téléverse le fichier (utilisé pour la structuration du chemin).
+     * @param targetResourceId   L'ID de la ressource à laquelle ce fichier est associé (ex: l'ID de l'utilisateur, l'ID du véhicule).
+     * @param originalFileName   Le nom de fichier original.
+     * @param file               Le fichier à sauvegarder.
+     * @return Un Mono contenant l'objet UploadMediaResponse avec l'URL publique et l'URI interne du fichier sauvegardé.
      */
-    Mono<String> saveFile(String basePath, String originalFileName, FilePart file);
-    
+    Mono<UploadMediaResponse> saveFile(String serviceContext, String frontendLogicalType, UUID uploaderUserId, UUID targetResourceId, String originalFileName, FilePart file);
+
     /**
-     * Supprime un fichier à partir de son nom d'objet complet.
-     * @param objectName Le chemin complet du fichier dans le bucket (ex: "avatars/user-id/resource-id/filename.jpg").
+     * Supprime un fichier en utilisant son URI interne retourné par le service de médias.
+     * Le service gérera l'obtention de son propre token d'authentification M2M.
+     *
+     * @param mediaUri           L'URI interne du fichier (ex: "/product/image/avatars/user-id/filename.jpg").
      * @return Un Mono<Void> qui se termine lorsque la suppression est terminée.
      */
-    Mono<Void> deleteFile(String objectName);
+    Mono<Void> deleteFile(String mediaUri);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/StorageService.java
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/util/JwtUtil.java
@@ -10879,7 +12166,6 @@ microservices.chat-service.url=${MICROSERVICES_CHAT_SERVICE_URL:http://88.198.15
 microservices.notification-service.url=${MICROSERVICES_NOTIFICATION_SERVICE_URL:https://gateway.yowyob.com/notification-service}
 microservices.resource-service.url=${MICROSERVICES_RESOURCE_SERVICE_URL:https://gateway.yowyob.com/resource-service}
 microservices.media-service.url=${MICROSERVICES_MEDIA_SERVICE_URL:https://gateway.yowyob.com/media-service}
-
 # ==============================
 # FREELANCE DRIVER CONFIG
 # ==============================
@@ -10937,7 +12223,8 @@ minio.bucket-name=${MINIO_BUCKET_NAME:freelance-driver}
 # SOCKET.IO CONFIG
 # ==============================
 socketio.server.host=${SOCKETIO_SERVER_HOST:0.0.0.0}
-socketio.server.port=${SOCKETIO_SERVER_PORT:9092}// END OF FILE: src/main/resources/application.properties
+socketio.server.port=${SOCKETIO_SERVER_PORT:9092}
+freelancedriver.firebase.project-id=${FREELANCE_DRIVER_FIREBASE_PROJECT_ID:freelance-driver-app}// END OF FILE: src/main/resources/application.properties
 
 //---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/resources/firebase-service-account-key .example
 

@@ -1,7 +1,9 @@
-/*package com.freelance.driver_backend.controller;
+/* 
+package com.freelance.driver_backend.controller;
 
 import com.corundumstudio.socketio.SocketIOServer;
 import com.freelance.driver_backend.dto.CreateProductRequest;
+import com.freelance.driver_backend.dto.UserSessionContextDto; // Importez la nouvelle structure
 import com.freelance.driver_backend.model.ClientProfile;
 import com.freelance.driver_backend.model.DriverProfile;
 import com.freelance.driver_backend.model.Product;
@@ -28,12 +30,9 @@ import java.util.UUID;
 @Slf4j
 public class PlanningController {
 
-    
-
     private final ResourceService resourceService;
     private final ProfileService profileService;
     private final ProductRepository productRepository;
-
     private final NotificationTriggerService notificationTriggerService;
     private final SocketIOServer socketIOServer;
 
@@ -45,7 +44,7 @@ public class PlanningController {
         log.info("Controller: Requête publique pour récupérer les plannings publiés.");
         return productRepository.findByCategoryId(PLANNING_CATEGORY_ID)
                 .filter(product -> "Published".equalsIgnoreCase(product.getStatus()))
-                .flatMap(this::enrichProductWithAuthorDetails);
+                .flatMap(this::enrichProductWithAuthorDetails); // Enrichit avec les détails du chauffeur
     }
 
     
@@ -54,27 +53,30 @@ public class PlanningController {
         log.info("Récupération des plannings publiés pour le chauffeur ID: {}", userId);
         return productRepository.findByClientIdAndCategoryId(userId, PLANNING_CATEGORY_ID)
                 .filter(product -> "Published".equalsIgnoreCase(product.getStatus()))
-                .flatMap(this::enrichProductWithAuthorDetails);
+                .flatMap(this::enrichProductWithAuthorDetails); // Enrichit avec les détails du chauffeur
     }
 
    
     @GetMapping
-    public Flux<Product> getAllPlanningsForCurrentUser(@AuthenticationPrincipal Mono<Jwt> jwtMono) {
+    public Flux<Product> getAllPlanningsForCurrentUser(@AuthenticationPrincipal Mono<Jwt> jwtMono,
+                                                        @RequestHeader("Authorization") String authorizationHeader) {
         return jwtMono
-            .map(JwtUtil::getUserIdFromToken)
-            .flatMapMany(driverId -> 
-                productRepository.findByClientIdAndCategoryId(driverId, PLANNING_CATEGORY_ID)
-                   // .flatMap(this::enrichProductWithAuthorDetails) 
-            );
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMapMany(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                     return Flux.error(new IllegalStateException("L'utilisateur n'est pas un chauffeur."));
+                }
+                return productRepository.findByClientIdAndCategoryId(userContext.getUserId(), PLANNING_CATEGORY_ID);
+            });
     }
 
     
-   @PostMapping
+    @PostMapping
     public Mono<ResponseEntity<Product>> createPlanning(
             @RequestBody CreateProductRequest request,
-            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono, 
             @RequestHeader("Authorization") String authorizationHeader) {
-
+        
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMap(userContext -> {
@@ -82,15 +84,18 @@ public class PlanningController {
                 if (userContext.getDriverProfile() == null) {
                     return Mono.error(new IllegalStateException("Seul un chauffeur peut créer un planning."));
                 }
-                DriverProfile driverProfile = userContext.getDriverProfile(); // Récupère le profil du chauffeur réel
-
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour créer un planning (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+                
                 request.setCategoryId(PLANNING_CATEGORY_ID);
-                // Assurez-vous que ces lignes sont décommentées et actives, comme discuté précédemment
+                // Ces informations sont maintenant décommentées et actives, comme discuté
                 request.setClientId(driverProfile.getUserId());
                 request.setClientName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
                 request.setClientPhoneNumber(driverProfile.getPhoneNumber());
                 request.setClientProfileImageUrl(driverProfile.getProfileImageUrl());
-
+                
                 log.info("▶️ [PlanningController.createPlanning] Création d'un planning par le chauffeur ID: {} pour l'organisation ID: {}",
                          driverProfile.getUserId(), userContext.getOrganisation().getOrganizationId());
                 log.info("▶️ [PlanningController.createPlanning] Request payload avant envoi au resourceService: {}", request);
@@ -113,9 +118,23 @@ public class PlanningController {
         
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
-            .flatMap(userContext -> 
-                resourceService.updateProduct(userContext.getOrganisation().getOrganizationId(), planningId, request, authorizationHeader, null)
-            )
+            .flatMap(userContext -> {
+                 if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les chauffeurs peuvent modifier leurs plannings."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour mettre à jour un planning (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+
+                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire du planning ?
+                return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), planningId))
+                        .filter(product -> driverProfile.getUserId().equals(product.getClientId()))
+                        .switchIfEmpty(Mono.error(new SecurityException("Le chauffeur n'est pas autorisé à modifier ce planning ou il n'existe pas.")))
+                        .flatMap(existingPlanning ->
+                            resourceService.updateProduct(userContext.getOrganisation().getOrganizationId(), planningId, request, authorizationHeader, null)
+                        );
+            })
             .doOnSuccess(updatedPlanning -> {
                 if (updatedPlanning != null) {
                     socketIOServer.getBroadcastOperations().sendEvent("updated_planning", updatedPlanning);
@@ -125,7 +144,7 @@ public class PlanningController {
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    
+ 
     @DeleteMapping("/{planningId}")
     public Mono<ResponseEntity<Void>> deletePlanning(
             @PathVariable UUID planningId,
@@ -134,15 +153,27 @@ public class PlanningController {
 
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
-            .flatMap(userContext -> 
-                resourceService.deleteProduct(userContext.getOrganisation().getOrganizationId(), planningId, authorizationHeader, null)
-            )
+            .flatMap(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les chauffeurs peuvent supprimer leurs plannings."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour supprimer un planning (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+
+                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire du planning ?
+                return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), planningId))
+                        .filter(product -> driverProfile.getUserId().equals(product.getClientId()))
+                        .switchIfEmpty(Mono.error(new SecurityException("Le chauffeur n'est pas autorisé à supprimer ce planning ou il n'existe pas.")))
+                        .flatMap(existingPlanning ->
+                            resourceService.deleteProduct(userContext.getOrganisation().getOrganizationId(), planningId, authorizationHeader, null)
+                        );
+            })
             .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT)));
     }
     
-   
-
-     
+    
     @PostMapping("/{planningId}/accept")
     public Mono<ResponseEntity<Product>> acceptPlanning(
             @PathVariable UUID planningId,
@@ -152,9 +183,11 @@ public class PlanningController {
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMap(clientContext -> {
-                if (!(clientContext.getProfile() instanceof ClientProfile clientProfile)) {
+                // MODIFIÉ : Vérifie directement si le clientProfile existe dans le contexte
+                if (clientContext.getClientProfile() == null) {
                     return Mono.error(new IllegalStateException("Seul un client peut accepter un planning."));
                 }
+                ClientProfile clientProfile = clientContext.getClientProfile(); // Récupère le profil du client réel
                 
                 return productRepository.findAll().filter(p -> p.getId().equals(planningId)).next()
                     .flatMap(planning -> {
@@ -179,14 +212,18 @@ public class PlanningController {
             .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    
+   
     @GetMapping("/my-reservations")
-    public Flux<Product> getMyReservedRides(@AuthenticationPrincipal Mono<Jwt> jwtMono) {
+    public Flux<Product> getMyReservedRides(@AuthenticationPrincipal Mono<Jwt> jwtMono,
+                                            @RequestHeader("Authorization") String authorizationHeader) {
         return jwtMono
-            .map(JwtUtil::getUserIdFromToken)
-            .flatMapMany(clientId -> {
-                log.info("Récupération des courses réservées par le client {}", clientId);
-                return productRepository.findByReservedByDriverId(clientId);
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMapMany(userContext -> {
+                 if (userContext.getClientProfile() == null) {
+                     return Flux.error(new IllegalStateException("L'utilisateur n'est pas un client."));
+                }
+                log.info("Récupération des courses réservées par le client {}", userContext.getUserId());
+                return productRepository.findByReservedByDriverId(userContext.getUserId());
             });
     }
 
@@ -198,7 +235,7 @@ public class PlanningController {
             return Mono.just(product); // Retourne le produit tel quel si pas d'auteur
         }
 
-        return profileService.findDriverById(authorId)
+        return profileService.findDriverById(authorId) // MODIFIÉ : Utilise findDriverById
             .map(driverProfile -> {
                 product.setAuthorId(driverProfile.getUserId());
                 product.setAuthorName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
@@ -208,16 +245,14 @@ public class PlanningController {
             })
             .defaultIfEmpty(product); // Si le chauffeur n'est pas trouvé, retourne le produit original
     }
-}*/
-
-
-// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/PlanningController.java
+}
+    */
 
 package com.freelance.driver_backend.controller;
 
 import com.corundumstudio.socketio.SocketIOServer;
 import com.freelance.driver_backend.dto.CreateProductRequest;
-import com.freelance.driver_backend.dto.UserSessionContextDto; // Importez la nouvelle structure
+import com.freelance.driver_backend.dto.UserSessionContextDto;
 import com.freelance.driver_backend.model.ClientProfile;
 import com.freelance.driver_backend.model.DriverProfile;
 import com.freelance.driver_backend.model.Product;
@@ -259,8 +294,8 @@ public class PlanningController {
     public Flux<Product> getPublishedPlannings() {
         log.info("Controller: Requête publique pour récupérer les plannings publiés.");
         return productRepository.findByCategoryId(PLANNING_CATEGORY_ID)
-                .filter(product -> "Published".equalsIgnoreCase(product.getStatus()))
-                .flatMap(this::enrichProductWithAuthorDetails); // Enrichit avec les détails du chauffeur
+                .filter(product -> "Published".equalsIgnoreCase(product.getStatus())) // Seuls les plannings "Published"
+                .flatMap(this::enrichProductWithAuthorDetails);
     }
 
     /**
@@ -271,11 +306,12 @@ public class PlanningController {
         log.info("Récupération des plannings publiés pour le chauffeur ID: {}", userId);
         return productRepository.findByClientIdAndCategoryId(userId, PLANNING_CATEGORY_ID)
                 .filter(product -> "Published".equalsIgnoreCase(product.getStatus()))
-                .flatMap(this::enrichProductWithAuthorDetails); // Enrichit avec les détails du chauffeur
+                .flatMap(this::enrichProductWithAuthorDetails);
     }
 
     /**
      * SECURISE (CONDUCTEUR): Récupère les plannings du conducteur actuellement connecté.
+     * Inclut aussi ceux en attente de confirmation ou confirmés.
      */
     @GetMapping
     public Flux<Product> getAllPlanningsForCurrentUser(@AuthenticationPrincipal Mono<Jwt> jwtMono,
@@ -286,6 +322,7 @@ public class PlanningController {
                 if (userContext.getDriverProfile() == null) {
                      return Flux.error(new IllegalStateException("L'utilisateur n'est pas un chauffeur."));
                 }
+                // Récupère tous les plannings où ce chauffeur est le client_id (auteur)
                 return productRepository.findByClientIdAndCategoryId(userContext.getUserId(), PLANNING_CATEGORY_ID);
             });
     }
@@ -302,7 +339,6 @@ public class PlanningController {
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMap(userContext -> {
-                // MODIFIÉ : Vérifie directement si le driverProfile existe dans le contexte
                 if (userContext.getDriverProfile() == null) {
                     return Mono.error(new IllegalStateException("Seul un chauffeur peut créer un planning."));
                 }
@@ -312,12 +348,14 @@ public class PlanningController {
                 DriverProfile driverProfile = userContext.getDriverProfile();
                 
                 request.setCategoryId(PLANNING_CATEGORY_ID);
-                // Ces informations sont maintenant décommentées et actives, comme discuté
                 request.setClientId(driverProfile.getUserId());
                 request.setClientName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
                 request.setClientPhoneNumber(driverProfile.getPhoneNumber());
                 request.setClientProfileImageUrl(driverProfile.getProfileImageUrl());
                 
+                // Le statut par défaut d'un nouveau planning est "Published"
+                request.setStatus("Published");
+
                 log.info("▶️ [PlanningController.createPlanning] Création d'un planning par le chauffeur ID: {} pour l'organisation ID: {}",
                          driverProfile.getUserId(), userContext.getOrganisation().getOrganizationId());
                 log.info("▶️ [PlanningController.createPlanning] Request payload avant envoi au resourceService: {}", request);
@@ -351,7 +389,6 @@ public class PlanningController {
                 }
                 DriverProfile driverProfile = userContext.getDriverProfile();
 
-                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire du planning ?
                 return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), planningId))
                         .filter(product -> driverProfile.getUserId().equals(product.getClientId()))
                         .switchIfEmpty(Mono.error(new SecurityException("Le chauffeur n'est pas autorisé à modifier ce planning ou il n'existe pas.")))
@@ -388,7 +425,6 @@ public class PlanningController {
                 }
                 DriverProfile driverProfile = userContext.getDriverProfile();
 
-                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire du planning ?
                 return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), planningId))
                         .filter(product -> driverProfile.getUserId().equals(product.getClientId()))
                         .switchIfEmpty(Mono.error(new SecurityException("Le chauffeur n'est pas autorisé à supprimer ce planning ou il n'existe pas.")))
@@ -400,10 +436,12 @@ public class PlanningController {
     }
     
     /**
-     * SECURISE (CLIENT): Permet à un client de réserver un planning.
+     * SECURISE (CLIENT): Permet à un client de DEMANDER à réserver un planning.
+     * Le statut de l'annonce passe à "PendingDriverConfirmation". Une notification est envoyée au chauffeur.
+     * (Anciennement /accept)
      */
-    @PostMapping("/{planningId}/accept")
-    public Mono<ResponseEntity<Product>> acceptPlanning(
+    @PostMapping("/{planningId}/request-booking")
+    public Mono<ResponseEntity<Product>> requestPlanningBooking( // RENOMMÉ
             @PathVariable UUID planningId,
             @AuthenticationPrincipal Mono<Jwt> jwtMono,
             @RequestHeader("Authorization") String authorizationHeader) {
@@ -411,29 +449,35 @@ public class PlanningController {
         return jwtMono
             .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
             .flatMap(clientContext -> {
-                // MODIFIÉ : Vérifie directement si le clientProfile existe dans le contexte
                 if (clientContext.getClientProfile() == null) {
-                    return Mono.error(new IllegalStateException("Seul un client peut accepter un planning."));
+                    return Mono.error(new IllegalStateException("Seul un client peut demander la réservation d'un planning."));
                 }
-                ClientProfile clientProfile = clientContext.getClientProfile(); // Récupère le profil du client réel
+                if (clientContext.getOrganisation() == null || clientContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour demander la réservation d'un planning (organisation manquante)."));
+                }
+                ClientProfile clientProfile = clientContext.getClientProfile();
                 
-                return productRepository.findAll().filter(p -> p.getId().equals(planningId)).next()
+                return productRepository.findById(new ProductKey(clientContext.getOrganisation().getOrganizationId(), planningId))
                     .flatMap(planning -> {
-                        ProductKey key = new ProductKey(planning.getOrganizationId(), planningId);
-                        return productRepository.findById(key)
-                            .flatMap(plan -> {
-                                if (plan.getReservedByDriverId() != null) {
-                                    return Mono.error(new IllegalStateException("Ce planning a déjà été réservé."));
-                                }
-                                plan.setReservedByDriverId(clientProfile.getUserId());
-                                plan.setReservedByDriverName(clientProfile.getFirstName() + " " + clientProfile.getLastName());
-                                plan.setStatus("Confirmed");
-                                return productRepository.save(plan);
-                            })
-                            .doOnSuccess(updatedPlanning -> {
-                                socketIOServer.getBroadcastOperations().sendEvent("updated_planning", updatedPlanning);
-                                // TODO: Notifier le CHAUFFEUR que son planning a été réservé
-                            });
+                        if (planning.getReservedByDriverId() != null) {
+                            return Mono.error(new IllegalStateException("Ce planning a déjà une demande de réservation ou est déjà réservé."));
+                        }
+                        
+                        // Met l'ID du client demandeur dans reservedByDriverId (qui représente ici le client ayant fait la demande)
+                        planning.setReservedByDriverId(clientProfile.getUserId());
+                        planning.setReservedByDriverName(clientProfile.getFirstName() + " " + clientProfile.getLastName());
+                        planning.setStatus("PendingDriverConfirmation"); // NOUVEAU STATUT
+                        log.info("Client {} demande la réservation du planning {}. Statut mis à jour à 'PendingDriverConfirmation'.", clientProfile.getUserId(), planningId);
+                        
+                        return productRepository.save(planning);
+                    })
+                    .flatMap(updatedPlanning -> 
+                        profileService.findDriverById(updatedPlanning.getClientId()) // Le client_id du planning est l'ID du chauffeur
+                            .flatMap(driverProfile -> notificationTriggerService.notifyDriverOfPlanningBookingRequest(updatedPlanning, clientProfile))
+                            .thenReturn(updatedPlanning)
+                    )
+                    .doOnSuccess(updatedPlanning -> {
+                        socketIOServer.getBroadcastOperations().sendEvent("updated_planning", updatedPlanning);
                     });
             })
             .map(ResponseEntity::ok)
@@ -441,7 +485,110 @@ public class PlanningController {
     }
 
     /**
-     * SECURISE (CLIENT): Récupère les plannings que le client connecté a réservés.
+     * SECURISE (CONDUCTEUR): Permet au CHAUFFEUR de confirmer (accepter) une demande de réservation d'un client.
+     * Le statut du planning passe à "Ongoing". Une notification est envoyée au client.
+     */
+    @PostMapping("/{planningId}/confirm-booking") // NOUVEL ENDPOINT
+    public Mono<ResponseEntity<Product>> confirmPlanningBooking(
+            @PathVariable UUID planningId,
+            @RequestParam UUID clientId, // Le client à confirmer
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(driverContext -> {
+                if (driverContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un chauffeur peut confirmer la réservation d'un planning."));
+                }
+                if (driverContext.getOrganisation() == null || driverContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour confirmer une réservation de planning (organisation manquante)."));
+                }
+                DriverProfile driverProfile = driverContext.getDriverProfile();
+
+                return productRepository.findById(new ProductKey(driverContext.getOrganisation().getOrganizationId(), planningId))
+                    .flatMap(planning -> {
+                        // Vérifier que le chauffeur connecté est bien l'auteur du planning
+                        if (!planning.getClientId().equals(driverContext.getUserId())) {
+                            return Mono.error(new SecurityException("Vous n'êtes pas l'auteur de ce planning."));
+                        }
+                        // Vérifier que le statut est bien "PendingDriverConfirmation" et que le client à confirmer est celui qui a fait la demande
+                        if (!"PendingDriverConfirmation".equalsIgnoreCase(planning.getStatus()) || !planning.getReservedByDriverId().equals(clientId)) {
+                             return Mono.error(new IllegalStateException("Ce planning n'est pas en attente de confirmation pour ce client, ou le statut est incorrect."));
+                        }
+
+                        planning.setStatus("Ongoing"); // Statut final
+                        log.info("Chauffeur {} a confirmé la réservation du client {} pour le planning {}. Statut mis à jour à 'Ongoing'.", driverProfile.getUserId(), clientId, planningId);
+                        
+                        return productRepository.save(planning);
+                    })
+                    .flatMap(updatedPlanning -> 
+                        profileService.findClientById(clientId) // Retrouver le profil du client pour la notification
+                            .flatMap(clientProfile -> notificationTriggerService.notifyClientOfPlanningBookingAccepted(updatedPlanning, driverProfile))
+                            .thenReturn(updatedPlanning)
+                    )
+                    .doOnSuccess(updatedPlanning -> {
+                        socketIOServer.getBroadcastOperations().sendEvent("updated_planning", updatedPlanning);
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CLIENT): Permet à un client d'ANNULER sa demande de réservation ou une réservation en cours.
+     * Le statut du planning revient à "Published". Une notification est envoyée au chauffeur.
+     */
+    @PostMapping("/{planningId}/cancel-reservation") // NOUVEL ENDPOINT
+    public Mono<ResponseEntity<Product>> cancelPlanningReservation(
+            @PathVariable UUID planningId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(clientContext -> {
+                if (clientContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un client peut annuler une réservation de planning."));
+                }
+                if (clientContext.getOrganisation() == null || clientContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour annuler une réservation de planning (organisation manquante)."));
+                }
+                ClientProfile clientProfile = clientContext.getClientProfile();
+
+                return productRepository.findById(new ProductKey(clientContext.getOrganisation().getOrganizationId(), planningId))
+                    .flatMap(planning -> {
+                        // Vérifier que le client connecté est bien celui qui a demandé ou réservé
+                        if (!clientProfile.getUserId().equals(planning.getReservedByDriverId())) {
+                            return Mono.error(new SecurityException("Vous n'avez pas demandé ou réservé ce planning."));
+                        }
+                        // Autoriser l'annulation si le statut est "PendingDriverConfirmation" ou "Ongoing"
+                        if (!"PendingDriverConfirmation".equalsIgnoreCase(planning.getStatus()) && !"Ongoing".equalsIgnoreCase(planning.getStatus())) {
+                            return Mono.error(new IllegalStateException("Le planning n'est pas dans un état permettant l'annulation de réservation (statut actuel: " + planning.getStatus() + ")."));
+                        }
+
+                        planning.setReservedByDriverId(null);
+                        planning.setReservedByDriverName(null);
+                        planning.setStatus("Published"); // Revenir au statut "Published"
+                        log.info("Client {} a annulé sa demande/réservation pour le planning {}. Statut remis à 'Published'.", clientProfile.getUserId(), planningId);
+                        
+                        return productRepository.save(planning);
+                    })
+                    .flatMap(updatedPlanning -> 
+                        profileService.findDriverById(updatedPlanning.getClientId()) // L'auteur du planning est le chauffeur
+                            .flatMap(driverProfile -> notificationTriggerService.notifyDriverOfCancelledPlanningReservation(updatedPlanning, clientProfile))
+                            .thenReturn(updatedPlanning)
+                    )
+                    .doOnSuccess(updatedPlanning -> {
+                        socketIOServer.getBroadcastOperations().sendEvent("updated_planning", updatedPlanning);
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CLIENT): Récupère les plannings que le client connecté a réservés ou demandés.
      */
     @GetMapping("/my-reservations")
     public Flux<Product> getMyReservedRides(@AuthenticationPrincipal Mono<Jwt> jwtMono,
@@ -452,8 +599,10 @@ public class PlanningController {
                  if (userContext.getClientProfile() == null) {
                      return Flux.error(new IllegalStateException("L'utilisateur n'est pas un client."));
                 }
-                log.info("Récupération des courses réservées par le client {}", userContext.getUserId());
-                return productRepository.findByReservedByDriverId(userContext.getUserId());
+                log.info("Récupération des courses réservées/demandées par le client {}", userContext.getUserId());
+                // Filtrer les plannings où ce client est le "reservedByDriverId"
+                return productRepository.findByReservedByDriverId(userContext.getUserId())
+                            .flatMap(this::enrichProductWithAuthorDetails); // Enrichir avec les détails du chauffeur (auteur du planning)
             });
     }
 
@@ -461,13 +610,12 @@ public class PlanningController {
      * Méthode privée pour enrichir un produit avec les détails de son auteur (chauffeur).
      */
     private Mono<Product> enrichProductWithAuthorDetails(Product product) {
-        // On suppose que product.getClientId() contient l'ID du chauffeur
         UUID authorId = product.getClientId();
         if (authorId == null) {
-            return Mono.just(product); // Retourne le produit tel quel si pas d'auteur
+            return Mono.just(product);
         }
 
-        return profileService.findDriverById(authorId) // MODIFIÉ : Utilise findDriverById
+        return profileService.findDriverById(authorId)
             .map(driverProfile -> {
                 product.setAuthorId(driverProfile.getUserId());
                 product.setAuthorName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
@@ -475,6 +623,6 @@ public class PlanningController {
                 product.setAuthorProfileImageUrl(driverProfile.getProfileImageUrl());
                 return product;
             })
-            .defaultIfEmpty(product); // Si le chauffeur n'est pas trouvé, retourne le produit original
+            .defaultIfEmpty(product);
     }
 }

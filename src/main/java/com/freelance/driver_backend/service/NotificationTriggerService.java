@@ -1,4 +1,6 @@
-/*package com.freelance.driver_backend.service;
+/* 
+
+package com.freelance.driver_backend.service;
 
 import com.freelance.driver_backend.dto.external.NotificationRequest;
 import com.freelance.driver_backend.model.DeviceToken;
@@ -15,7 +17,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.HashMap; // <-- NOUVEL IMPORT
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -50,14 +52,12 @@ public class NotificationTriggerService {
                 
                 UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_ANNOUNCEMENT_ACCEPTED_ID"));
                 
-                // --- AJOUT DU PAYLOAD DE DONNÉES POUR LE ROUTAGE FRONTEND ---
                 Map<String, String> dataPayload = new HashMap<>();
-                dataPayload.put("screen", "DriverDetails"); // Nom de l'écran cible dans le frontend
+                dataPayload.put("screen", "DriverDetails");
                 dataPayload.put("driverId", driverProfile.getUserId().toString());
-                dataPayload.put("announcementId", announcement.getId().toString()); // L'ID de l'annonce en question
-                dataPayload.put("source", "notification"); // Pour indiquer la provenance
-                // -----------------------------------------------------------
-
+                dataPayload.put("announcementId", announcement.getId().toString());
+                dataPayload.put("source", "notification");
+                
                 NotificationRequest request = NotificationRequest.builder()
                     .templateId(templateId)
                     .recipients(tokens)
@@ -66,7 +66,7 @@ public class NotificationTriggerService {
                         "tripTitle", announcement.getName(),
                         "driverId", driverProfile.getUserId().toString() 
                     ))
-                    .data(dataPayload) // <-- AJOUT DU DATA PAYLOAD
+                    .data(dataPayload)
                     .build();
                 
                 return notificationService.sendPushNotification(announcement.getOrganizationId(), request, null, null);
@@ -94,12 +94,10 @@ public class NotificationTriggerService {
                 
                 return clientProfileRepository.findByUserId(announcement.getClientId())
                     .flatMap(clientProfile -> {
-                        // --- AJOUT DU PAYLOAD DE DONNÉES POUR LE ROUTAGE FRONTEND ---
                         Map<String, String> dataPayload = new HashMap<>();
-                        dataPayload.put("screen", "MyAcceptedRides"); // Exemple: écran où le chauffeur voit ses courses acceptées
+                        dataPayload.put("screen", "MyAcceptedRides"); 
                         dataPayload.put("tripId", announcement.getId().toString());
                         dataPayload.put("source", "notification");
-                        // -----------------------------------------------------------
 
                         NotificationRequest request = NotificationRequest.builder()
                             .templateId(templateId)
@@ -109,7 +107,7 @@ public class NotificationTriggerService {
                                 "tripTitle", announcement.getName(),
                                 "tripId", announcement.getId().toString()
                             ))
-                            .data(dataPayload) // <-- AJOUT DU DATA PAYLOAD
+                            .data(dataPayload)
                             .build();
                         return notificationService.sendPushNotification(announcement.getOrganizationId(), request, null, null);
                     })
@@ -117,8 +115,45 @@ public class NotificationTriggerService {
             })
             .then();
     }
+
     
+    public Mono<Void> notifyClientOfCancelledPostulation(Product announcement, DriverProfile driverProfile) {
+        UUID targetClientId = announcement.getClientId();
+        if (targetClientId == null) return Mono.empty();
+
+        log.info("Déclenchement de la notification pour le client {} (postulation ANNULÉE par chauffeur {}) pour l'annonce {}.", targetClientId, driverProfile.getUserId(), announcement.getName());
+
+        return deviceTokenRepository.findByUserId(targetClientId)
+            .map(DeviceToken::getToken)
+            .collectList()
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour le client {}.", targetClientId);
+                    return Mono.empty();
+                }
+
+                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_POSTULATION_CANCELLED_ID")); // <-- NOUVEAU TEMPLATE ID
+                
+                Map<String, String> dataPayload = new HashMap<>();
+                dataPayload.put("screen", "MyAnnouncements"); // Écran où le client voit ses annonces
+                dataPayload.put("announcementId", announcement.getId().toString());
+                dataPayload.put("source", "notification");
+
+                NotificationRequest request = NotificationRequest.builder()
+                    .templateId(templateId)
+                    .recipients(tokens)
+                    .metadata(Map.of(
+                        "driverName", driverProfile.getFirstName() + " " + driverProfile.getLastName(),
+                        "tripTitle", announcement.getName()
+                    ))
+                    .data(dataPayload)
+                    .build();
+                return notificationService.sendPushNotification(announcement.getOrganizationId(), request, null, null);
+            })
+            .then();
+    }
     
+   
     public Mono<Void> notifyAllClientsOfNewPlanning(Product planning) {
         log.info("Déclenchement des notifications à tous les clients pour le nouveau planning: {}", planning.getName());
         
@@ -177,15 +212,16 @@ public class NotificationTriggerService {
                     .recipients(List.copyOf(tokens))
                     .metadata(metadata)
                     .build();
-                return notificationService.sendPushNotification(organizationId, request, null, null);
+                // Assurez-vous que sendPushNotification peut prendre le dataPayload si nécessaire
+                return notificationService.sendPushNotification(organizationId, request, null, null); 
             });
     }
 }*/
 
-
 package com.freelance.driver_backend.service;
 
 import com.freelance.driver_backend.dto.external.NotificationRequest;
+import com.freelance.driver_backend.model.ClientProfile;
 import com.freelance.driver_backend.model.DeviceToken;
 import com.freelance.driver_backend.model.DriverProfile;
 import com.freelance.driver_backend.model.Product;
@@ -304,7 +340,7 @@ public class NotificationTriggerService {
     }
 
     /**
-     * NOUVELLE FONCTION : Notifie le client qu'un chauffeur a annulé sa postulation.
+     * Notifie le client qu'un chauffeur a annulé sa postulation.
      */
     public Mono<Void> notifyClientOfCancelledPostulation(Product announcement, DriverProfile driverProfile) {
         UUID targetClientId = announcement.getClientId();
@@ -321,10 +357,10 @@ public class NotificationTriggerService {
                     return Mono.empty();
                 }
 
-                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_POSTULATION_CANCELLED_ID")); // <-- NOUVEAU TEMPLATE ID
+                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_POSTULATION_CANCELLED_ID")); 
                 
                 Map<String, String> dataPayload = new HashMap<>();
-                dataPayload.put("screen", "MyAnnouncements"); // Écran où le client voit ses annonces
+                dataPayload.put("screen", "MyAnnouncements"); 
                 dataPayload.put("announcementId", announcement.getId().toString());
                 dataPayload.put("source", "notification");
 
@@ -338,6 +374,125 @@ public class NotificationTriggerService {
                     .data(dataPayload)
                     .build();
                 return notificationService.sendPushNotification(announcement.getOrganizationId(), request, null, null);
+            })
+            .then();
+    }
+    
+    /**
+     * NOUVEAU : Notifie le CHAUFFEUR qu'un client a DEMANDÉ à réserver son planning.
+     */
+    public Mono<Void> notifyDriverOfPlanningBookingRequest(Product planning, ClientProfile clientProfile) {
+        UUID targetDriverId = planning.getClientId(); // L'auteur du planning est le chauffeur
+        if (targetDriverId == null) return Mono.empty();
+
+        log.info("Déclenchement de la notification pour le chauffeur {} (demande de réservation de planning par client {}) pour le planning {}.", targetDriverId, clientProfile.getUserId(), planning.getName());
+
+        return deviceTokenRepository.findByUserId(targetDriverId)
+            .map(DeviceToken::getToken)
+            .collectList()
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour le chauffeur {}.", targetDriverId);
+                    return Mono.empty();
+                }
+
+                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_PLANNING_BOOKING_REQUESTED_TO_DRIVER_ID"));
+                
+                Map<String, String> dataPayload = new HashMap<>();
+                dataPayload.put("screen", "MyPlannings"); // Écran où le chauffeur voit ses plannings ou demandes
+                dataPayload.put("planningId", planning.getId().toString());
+                dataPayload.put("clientId", clientProfile.getUserId().toString()); // Pour que le chauffeur puisse confirmer
+                dataPayload.put("source", "notification");
+
+                NotificationRequest request = NotificationRequest.builder()
+                    .templateId(templateId)
+                    .recipients(tokens)
+                    .metadata(Map.of(
+                        "clientName", clientProfile.getFirstName() + " " + clientProfile.getLastName(),
+                        "tripTitle", planning.getName()
+                    ))
+                    .data(dataPayload)
+                    .build();
+                return notificationService.sendPushNotification(planning.getOrganizationId(), request, null, null);
+            })
+            .then();
+    }
+
+    /**
+     * NOUVEAU : Notifie le CLIENT qu'un chauffeur a ACCEPTÉ sa demande de réservation de planning.
+     */
+    public Mono<Void> notifyClientOfPlanningBookingAccepted(Product planning, DriverProfile driverProfile) {
+        UUID targetClientId = planning.getReservedByDriverId(); // C'est le client qui avait initié la réservation
+        if (targetClientId == null) return Mono.empty();
+
+        log.info("Déclenchement de la notification pour le client {} (réservation de planning ACCEPTÉE par chauffeur {}) pour le planning {}.", targetClientId, driverProfile.getUserId(), planning.getName());
+
+        return deviceTokenRepository.findByUserId(targetClientId)
+            .map(DeviceToken::getToken)
+            .collectList()
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour le client {}.", targetClientId);
+                    return Mono.empty();
+                }
+
+                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_PLANNING_BOOKING_ACCEPTED_TO_CLIENT_ID"));
+                
+                Map<String, String> dataPayload = new HashMap<>();
+                dataPayload.put("screen", "MyReservations"); // Écran où le client voit ses réservations
+                dataPayload.put("planningId", planning.getId().toString());
+                dataPayload.put("driverId", driverProfile.getUserId().toString()); // Infos du chauffeur si besoin
+                dataPayload.put("source", "notification");
+
+                NotificationRequest request = NotificationRequest.builder()
+                    .templateId(templateId)
+                    .recipients(tokens)
+                    .metadata(Map.of(
+                        "driverName", driverProfile.getFirstName() + " " + driverProfile.getLastName(),
+                        "tripTitle", planning.getName()
+                    ))
+                    .data(dataPayload)
+                    .build();
+                return notificationService.sendPushNotification(planning.getOrganizationId(), request, null, null);
+            })
+            .then();
+    }
+
+    /**
+     * NOUVEAU : Notifie le CHAUFFEUR qu'un client a ANNULÉ sa réservation ou sa demande de réservation de planning.
+     */
+    public Mono<Void> notifyDriverOfCancelledPlanningReservation(Product planning, ClientProfile clientProfile) {
+        UUID targetDriverId = planning.getClientId(); // L'auteur du planning est le chauffeur
+        if (targetDriverId == null) return Mono.empty();
+
+        log.info("Déclenchement de la notification pour le chauffeur {} (réservation/demande ANNULÉE par client {}) pour le planning {}.", targetDriverId, clientProfile.getUserId(), planning.getName());
+
+        return deviceTokenRepository.findByUserId(targetDriverId)
+            .map(DeviceToken::getToken)
+            .collectList()
+            .flatMap(tokens -> {
+                if (tokens.isEmpty()) {
+                    log.warn("Aucun token d'appareil trouvé pour le chauffeur {}.", targetDriverId);
+                    return Mono.empty();
+                }
+
+                UUID templateId = UUID.fromString(dotenv.get("TEMPLATE_PUSH_PLANNING_RESERVATION_CANCELLED_ID"));
+                
+                Map<String, String> dataPayload = new HashMap<>();
+                dataPayload.put("screen", "MyPlannings"); // Écran où le chauffeur voit ses plannings
+                dataPayload.put("planningId", planning.getId().toString());
+                dataPayload.put("source", "notification");
+
+                NotificationRequest request = NotificationRequest.builder()
+                    .templateId(templateId)
+                    .recipients(List.copyOf(tokens))
+                    .metadata(Map.of(
+                        "clientName", clientProfile.getFirstName() + " " + clientProfile.getLastName(),
+                        "tripTitle", planning.getName()
+                    ))
+                    .data(dataPayload)
+                    .build();
+                return notificationService.sendPushNotification(planning.getOrganizationId(), request, null, null);
             })
             .then();
     }
