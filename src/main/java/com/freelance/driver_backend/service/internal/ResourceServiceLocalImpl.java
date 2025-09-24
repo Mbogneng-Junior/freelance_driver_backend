@@ -17,7 +17,6 @@ import java.util.UUID;
 
 
 @Service
-@Profile("dev-resource-mock")
 @Slf4j
 public class ResourceServiceLocalImpl implements ResourceService {
     private final WebClient localApiClient;

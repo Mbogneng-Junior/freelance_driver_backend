@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-@Profile("dev-resource-mock") 
+
 @RequiredArgsConstructor
 @Slf4j
 public class MockOrganisationServiceImpl implements OrganisationService {

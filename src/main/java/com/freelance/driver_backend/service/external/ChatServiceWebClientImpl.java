@@ -11,7 +11,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @Component
-@Profile({"production", "dev-resource-mock"})
+
 @Slf4j
 public class ChatServiceWebClientImpl implements ChatService {
 
@@ -41,6 +41,7 @@ public class ChatServiceWebClientImpl implements ChatService {
                 .then(loginChatUser(new ChatUserLoginPayload(null, payload.getLogin(), payload.getSecret())));
     }
 
+    
     @Override
     public Mono<ChatUserLoginResponse> loginChatUser(ChatUserLoginPayload payload) {
         log.info("Chat API Call: Logging in user {}", payload.getLogin());

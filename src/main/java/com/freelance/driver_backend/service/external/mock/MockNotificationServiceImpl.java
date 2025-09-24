@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 import com.google.firebase.FirebaseApp;
 
 @Service
-@Profile({"dev-mock", "dev-resource-mock"})
+
 @RequiredArgsConstructor
 @Slf4j
 public class MockNotificationServiceImpl implements NotificationService {

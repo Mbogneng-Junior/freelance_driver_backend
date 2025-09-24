@@ -19,7 +19,7 @@ import java.util.UUID;
 @RequestMapping("/api/mock-products/{organizationId}")
 @RequiredArgsConstructor
 @Slf4j
-@Profile("dev-resource-mock") // S'assure qu'il est actif avec votre profil de développement
+
 public class MockProductController {
 
     private final ProductRepository productRepository;

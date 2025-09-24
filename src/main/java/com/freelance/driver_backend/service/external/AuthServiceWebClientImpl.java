@@ -18,7 +18,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @Component
-@Profile({"production", "dev-resource-mock"})
 @Slf4j
 public class AuthServiceWebClientImpl implements AuthService {
 
