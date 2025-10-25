@@ -23,7 +23,9 @@ public interface AuthService {
      * @param m2mBearerToken Le token M2M nécessaire pour autoriser cette opération.
      * @return Un Mono contenant les informations de l'utilisateur créé.
      */
-    Mono<UserDto> registerUser(RegistrationRequest request, String m2mBearerToken);
+   
+
+     Mono<UserDto> registerUser(RegistrationRequest request, String m2mBearerToken);
 
     /**
      * Connecte un utilisateur pour obtenir un token d'accès personnel.
@@ -31,5 +33,9 @@ public interface AuthService {
      * @param m2mBearerToken Le token M2M nécessaire pour autoriser cette opération.
      * @return Un Mono contenant la réponse de connexion complète (token, infos utilisateur, etc.).
      */
-    Mono<LoginResponse> loginUser(LoginRequest request, String m2mBearerToken);
+     Mono<LoginResponse> loginUser(LoginRequest request, String m2mBearerToken);
+
+
+
+    
 }

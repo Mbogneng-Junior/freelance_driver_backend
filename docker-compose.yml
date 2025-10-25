@@ -18,9 +18,6 @@ services:
     volumes:
       - minio_data:/data
     environment:
-      # ==============================================================================
-      #                         MODIFIEZ CES DEUX LIGNES
-      # ==============================================================================
       MINIO_ROOT_USER: junioradmin 
       MINIO_ROOT_PASSWORD: YourStrongPassword2025
       # ==============================================================================

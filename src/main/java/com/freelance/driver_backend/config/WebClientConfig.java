@@ -125,4 +125,16 @@ public class WebClientConfig {
                 .build();
     }
 
+    
+
+    @Bean
+    @Qualifier("mockWebClient")
+    public WebClient mockWebClient() {
+        return WebClient.builder()
+                .baseUrl("http://localhost:" + localServerPort)
+                .clientConnector(new ReactorClientHttpConnector(createConfiguredHttpClient()))
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                .build();
+    }
+
 }

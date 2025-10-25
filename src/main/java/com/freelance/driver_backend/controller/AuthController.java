@@ -58,7 +58,7 @@ public class AuthController {
      * puis génère et envoie l'OTP.
      * Cet endpoint est appelé par `SignUp.tsx`.
      */
-    @PostMapping("/register") // CETTE ROUTE DOIT ÊTRE RÉACTIVÉE
+    /* @PostMapping("/register") // CETTE ROUTE DOIT ÊTRE RÉACTIVÉE
     public Mono<ResponseEntity<Map<String, String>>> registerUserAndInitiateOtp(@RequestBody RegistrationRequest request) {
         String email = request.getEmail();
         String firstName = request.getFirstName();
@@ -112,6 +112,63 @@ public class AuthController {
                         log.error("❌ Erreur lors de l'inscription ou de l'envoi de l'OTP pour {}: {}", email, e.getMessage());
                         return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage())));
                     });
+            });
+    } */
+
+        @PostMapping("/register") // CETTE ROUTE DOIT ÊTRE RÉACTIVÉE
+    public Mono<ResponseEntity<Map<String, String>>> registerUserAndInitiateOtp(@RequestBody RegistrationRequest request) {
+        String email = request.getEmail();
+        String firstName = request.getFirstName();
+        
+        log.info("▶️ Début du processus d'inscription (API externe) et OTP pour l'email: {}", email);
+        
+        // Le token M2M n'est plus requis pour l'enregistrement de l'utilisateur.
+        // L'appel à getClientCredentialsToken est donc supprimé ici.
+        String m2mBearerToken = "Bearer BQC5Zt6s9y$C&F)J@NcRfUjXn2r5u8x/";
+        // 1. Enregistrer l'utilisateur auprès du service d'authentification externe.
+        return authService.registerUser(request,m2mBearerToken)
+            .flatMap(userDto -> {
+                log.info("✅ Utilisateur '{}' enregistré avec succès via l'API externe. ID: {}", userDto.getEmail(), userDto.getId());
+                
+                // 2. Générer et sauvegarder l'OTP localement
+                String otp = String.format("%06d", new Random().nextInt(999999));
+                OtpVerification newVerification = new OtpVerification();
+                newVerification.setEmail(email);
+                newVerification.setOtpCode(otp);
+                
+                newVerification.setExpiresAt(Instant.now().plus(10, ChronoUnit.MINUTES));
+                
+                return otpVerificationRepository.save(newVerification);
+            })
+            .flatMap(savedOtp -> {
+                log.info("✅ OTP {} sauvegardé localement pour {}", savedOtp.getOtpCode(), email);
+
+                // 3. Envoyer l'email OTP via le service de notification
+                UUID otpTemplateId = UUID.fromString(dotenv.get("TEMPLATE_EMAIL_OTP_ID"));
+                UUID tempOrgId = UUID.fromString(dotenv.get("SYSTEM_ORGANIZATION_ID"));
+
+                NotificationRequest otpRequest = NotificationRequest.builder()
+                    .templateId(otpTemplateId)
+                    .recipients(List.of(email))
+                    .metadata(Map.of("firstName", firstName, "otpCode", savedOtp.getOtpCode()))
+                    .build();
+                
+                // Note: L'envoi de notification pourrait nécessiter un token M2M.
+                // Si c'est le cas, l'appel à getClientCredentialsToken devrait être replacé ici.
+                return notificationService.sendEmailNotification(tempOrgId, otpRequest, null, null);
+            })
+            .map(success -> {
+                if (Boolean.TRUE.equals(success)) {
+                    log.info("✅ Email OTP envoyé avec succès à {}", email);
+                    return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Utilisateur enregistré, OTP envoyé."));
+                } else {
+                    log.error("❌ Échec de l'envoi de l'email OTP à {}", email);
+                    return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("message", "Utilisateur enregistré, mais l'email OTP n'a pas pu être envoyé."));
+                }
+            })
+            .onErrorResume(RuntimeException.class, e -> {
+                log.error("❌ Erreur lors de l'inscription ou de l'envoi de l'OTP pour {}: {}", email, e.getMessage());
+                return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage())));
             });
     }
 }

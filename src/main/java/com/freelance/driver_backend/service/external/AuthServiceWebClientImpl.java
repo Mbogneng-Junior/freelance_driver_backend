@@ -22,10 +22,12 @@ import reactor.core.publisher.Mono;
 public class AuthServiceWebClientImpl implements AuthService {
 
     private final WebClient webClient;
+    private final WebClient mockWebClient;
 
     // Le Qualifier pointe toujours vers le Bean défini dans WebClientConfig
-    public AuthServiceWebClientImpl(@Qualifier("authServiceWebClient") WebClient webClient) {
+    public AuthServiceWebClientImpl(@Qualifier("authServiceWebClient") WebClient webClient,@Qualifier("mockWebClient") WebClient mockWebClient) {
         this.webClient = webClient;
+        this.mockWebClient = mockWebClient;
     }
 
     @Override
@@ -53,6 +55,103 @@ public class AuthServiceWebClientImpl implements AuthService {
                 .bodyToMono(OAuthTokenResponse.class);
     }
 
+
+    //On desactive m2m bearer token pour l'instant
+    // public Mono<UserDto> registerUser(RegistrationRequest  request,String m2mBearerToken) {
+    public Mono<UserDto> registerUser(RegistrationRequest  request, String m2mBearerToken) {
+        log.info("Étape 1: Sending mock registration request for {}", request.getEmail());
+        
+        return mockWebClient.post()
+                .uri("/api/mock_user/register")
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(errorBody -> {
+                                    log.error("Error during mock user registration for {}: {} - {}", 
+                                            request.getEmail(), response.statusCode(), errorBody);
+
+                                    String clientErrorMessage = "Mock registration failed with status " + response.statusCode();
+                                    
+                                    // Log la réponse brute pour le débogage
+                                    clientErrorMessage += ": Mock service responded with: " + 
+                                            (errorBody != null && !errorBody.isEmpty() ? errorBody : "[Empty or Null Body]");
+
+                                    try {
+                                        ObjectMapper mapper = new ObjectMapper();
+                                        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+                                        JsonNode root = mapper.readTree(errorBody);
+
+                                        // Extraction de messages d'erreur spécifiques
+                                        if (root.has("message") && root.get("message").isTextual()) {
+                                            clientErrorMessage = root.get("message").asText();
+                                        } else if (root.has("error") && root.get("error").isTextual()) {
+                                            clientErrorMessage = root.get("error").asText();
+                                        }
+                                        
+                                        if (root.has("errors") && root.get("errors").isObject()) {
+                                            clientErrorMessage += " (Details: " + root.get("errors").toString() + ")";
+                                        }
+                                        
+                                    } catch (JsonProcessingException e) {
+                                        log.warn("Could not parse errorBody from mock service as JSON: {}", errorBody, e);
+                                    } catch (Exception e) {
+                                        log.error("Unexpected error while processing errorBody from mock service: {}", errorBody, e);
+                                    }
+    
+                                    return Mono.error(new RuntimeException(clientErrorMessage));
+                                })
+                )
+                .bodyToMono(UserDto.class);
+    }
+    
+    //On desactive m2m bearer token pour l'instant
+    // public Mono<LoginResponse> loginUser(LoginRequest request, String m2mBearerToken) {
+    public Mono<LoginResponse> loginUser(LoginRequest request, String m2mBearerToken) {
+        log.info("Étape 2: Sending mock login request for {}", request.getUsername());
+        
+        return mockWebClient.post()
+                .uri("/api/mock_user/login")
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(errorBody -> {
+                                    log.error("HTTP Error during mock login for user {}: {} - {}", 
+                                            request.getUsername(), response.statusCode(), errorBody);
+                                    return Mono.error(new RuntimeException("Mock login failed with HTTP status: " + response.statusCode()));
+                                })
+                )
+                .bodyToMono(String.class)
+                .flatMap(rawBody -> {
+                    log.info("Raw JSON response from mock /api/mock_user/login for user {}: {}", 
+                            request.getUsername(), rawBody);
+                    
+                    try {
+                        ObjectMapper objectMapper = new ObjectMapper();
+                        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+                        JsonNode rootNode = objectMapper.readTree(rawBody);
+                        
+                        // Vérifier si l'API mock renvoie un statut FAILED
+                        if (rootNode.has("status") && "FAILED".equals(rootNode.get("status").asText())) {
+                            String errorMessage = rootNode.get("message").asText("Invalid Credentials");
+                            log.warn("Mock login failed for user '{}': {}", request.getUsername(), errorMessage);
+                            return Mono.empty(); // Retourner un Mono vide pour signaler l'échec
+                        }
+
+                        // Si succès, parser la réponse complète
+                        LoginResponse loginResponse = objectMapper.readValue(rawBody, LoginResponse.class);
+                        return Mono.just(loginResponse);
+
+                    } catch (JsonProcessingException e) {
+                        log.error("Failed to parse mock login response JSON", e);
+                        return Mono.error(new RuntimeException("Failed to parse mock login response JSON", e));
+                    }
+                });
+    }
+    
+    /* 
     @Override
     public Mono<UserDto> registerUser(RegistrationRequest request, String m2mBearerToken) {
         log.info("Étape 1: Sending registration request for {}", request.getEmail());
@@ -145,5 +244,5 @@ public class AuthServiceWebClientImpl implements AuthService {
                         return Mono.error(new RuntimeException("Failed to parse login response JSON", e));
                     }
                 });
-    }
+    } */
 }

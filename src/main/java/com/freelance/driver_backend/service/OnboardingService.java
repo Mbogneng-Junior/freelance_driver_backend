@@ -233,7 +233,10 @@ public class OnboardingService {
      * Gère la connexion de l'utilisateur (déjà créé à l'étape /api/register)
      * et la création de son organisation via l'API externe réelle. (Inchangée)
      */
-    private Mono<AllInfo> createAuthUserAndOrganization(String email, String password, String firstName, String lastName, String phoneNumber, String companyName, String companyDescription) {
+
+    
+    //Version originale
+    /*private Mono<AllInfo> createAuthUserAndOrganization(String email, String password, String firstName, String lastName, String phoneNumber, String companyName, String companyDescription) {
         LoginRequest loginRequest = new LoginRequest(email, password);
 
         return authService.getClientCredentialsToken(oauthClientId, oauthClientSecret)
@@ -241,6 +244,8 @@ public class OnboardingService {
             .flatMap(m2mTokenResponse -> {
                 String m2mBearerToken = "Bearer " + m2mTokenResponse.getAccessToken();
 
+                //On commentes l'utilisation de m2mBearerToken
+                
                 return authService.loginUser(loginRequest, m2mBearerToken)
                     .switchIfEmpty(Mono.error(new RuntimeException("Échec de la connexion de l'utilisateur déjà enregistré pour " + email + ". Vérifiez les identifiants.")))
                     .doOnSuccess(loginResponse -> log.info("Étape 3/6: Connexion de l'utilisateur {} réussie. (ID: {})", loginResponse.getUser().getUsername(), loginResponse.getUser().getId()))
@@ -274,7 +279,49 @@ public class OnboardingService {
                     });
             });
     }
+    */
 
+
+
+    //On commentes l'utilisation de m2mBearerToken
+
+    private Mono<AllInfo> createAuthUserAndOrganization(String email, String password, String firstName, String lastName, String phoneNumber, String companyName, String companyDescription) {
+        LoginRequest loginRequest = new LoginRequest(email, password);
+
+                return authService.loginUser(loginRequest, "jdjdjdkdke")
+                    .switchIfEmpty(Mono.error(new RuntimeException("Échec de la connexion de l'utilisateur déjà enregistré pour " + email + ". Vérifiez les identifiants.")))
+                    .doOnSuccess(loginResponse -> log.info("Étape 3/6: Connexion de l'utilisateur {} réussie. (ID: {})", loginResponse.getUser().getUsername(), loginResponse.getUser().getId()))
+                    .flatMap(loginResponse -> {
+                        LoginResponse.UserInfo registeredUser = loginResponse.getUser();
+                        String userBearerToken = "Bearer " + loginResponse.getAccessToken().getToken();
+
+                        String finalCompanyName = companyName.trim().isEmpty() ?
+                                                    (firstName.trim() + " " + lastName.trim() + "'s Business") :
+                                                    companyName.trim();
+                        String finalCompanyDescription = companyDescription.trim().isEmpty() ?
+                                                    ("Freelance services for " + (finalCompanyName.contains("'s Business") ? firstName : finalCompanyName)) :
+                                                    companyDescription.trim();
+
+                        OrganisationCreationRequest orgRequest = OrganisationCreationRequest.builder()
+                                .longName(finalCompanyName)
+                                .shortName(generateShortName(finalCompanyName))
+                                .description(finalCompanyDescription)
+                                .email(email)
+                                .build();
+
+                        log.info("Étape 4/6: Création de l'organisation pour l'utilisateur {} via l'API externe.", email);
+                        return organisationService.createOrganisation(orgRequest, userBearerToken, publicKey)
+                            .map(createdOrg -> {
+                                log.info("✅ Organisation '{}' (provenance: {}) créée. Données: {}",
+                                    createdOrg.getLongName(),
+                                    organisationService.getClass().getSimpleName(),
+                                    createdOrg);
+                                return new AllInfo(registeredUser, createdOrg, loginResponse);
+                            });
+                    });
+            
+    }
+    
     /**
      * Construit la réponse finale à envoyer au frontend. (Inchangée)
      */

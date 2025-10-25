@@ -18,7 +18,12 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
+import java.security.KeyPair;
 import java.util.Arrays;
+
+import java.security.interfaces.RSAPublicKey;
+
+
 
 
 @Configuration
@@ -61,13 +66,14 @@ public class SecurityConfig {
 
                 // Routes pour les mocks de développement
                 .pathMatchers("/api/mock-**/**").permitAll()
+                .pathMatchers("/api/mock_user/**", "/api/mock_auth/**").permitAll()
 
                 // --- Routes Sécurisées (authenticated) ---
                 // Toutes les autres requêtes nécessitent une authentification
                 .anyExchange().authenticated()
             )
             // Configurer le serveur de ressources OAuth2 pour valider les tokens JWT
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtDecoder(jwtDecoder())));
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> { }));
 
         return http.build();
     }
@@ -80,7 +86,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Spécifiez les origines exactes de votre frontend en production
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:19006", "http://localhost:8081", "exp://*", "http://192.168.43.4:8081")); // IP à adapter
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:19006", "http://localhost:8081", "exp://*", "http://192.168.43.4:8081", "http://192.168.43.204:8081","http://192.168.43.204:19006","http://10.166.235.204:8081","http://10.166.235.204:19006","http://10.2.27.171:8081","http://10.2.27.171:19006","http://192.168.1.112:8081")); // IP à adapter
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -89,8 +95,10 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+  
 
-    @Bean
+    //Pour decoder les tokens externes
+    /*@Bean
     public ReactiveJwtDecoder jwtDecoder() {
         NimbusReactiveJwtDecoder jwtDecoder = NimbusReactiveJwtDecoder.withJwkSetUri(this.jwkSetUri).build();
         // Pour le développement, on peut désactiver la validation de la signature si nécessaire,
@@ -99,4 +107,15 @@ public class SecurityConfig {
         jwtDecoder.setJwtValidator(noOpValidator);
         return jwtDecoder;
     }
+  */
+   @Bean
+    public ReactiveJwtDecoder jwtDecoder(KeyPair keyPair) {
+        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
+        return NimbusReactiveJwtDecoder.withPublicKey(publicKey).build();
+    }
+
+
+
 }
+
+

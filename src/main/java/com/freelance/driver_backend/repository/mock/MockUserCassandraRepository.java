@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono;
 import java.util.UUID;
 
 @Repository
-public interface MockUserRepository extends ReactiveCassandraRepository<MockUser, UUID> {
+public interface MockUserCassandraRepository extends ReactiveCassandraRepository<MockUser, UUID> {
     
     @AllowFiltering
     Mono<MockUser> findByEmail(String email);
