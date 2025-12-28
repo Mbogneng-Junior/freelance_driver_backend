@@ -49,6 +49,8 @@ public class MockUserService {
                 .map(this::convertToUserDto);
     }
 
+    
+
     public Mono<LoginResponse> login(LoginRequest request) {
         return mockUserRepository.findByUsername(request.getUsername())
                 .switchIfEmpty(Mono.error(new RuntimeException("Identifiants invalides")))

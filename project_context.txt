@@ -1,11 +1,11 @@
-Project Context From: /home/mbogneng-junior/freelance-driver (Copie)/backend
-Generated On: lun. 20 oct. 2025 16:32:02 WAT
+Project Context From: /home/mbogneng-junior/freelance-driver_Sylladb/backend
+Generated On: lun. 27 oct. 2025 20:57:24 WAT
 ===============================================
 Ignored Directory Patterns: .* node_modules vendor build dist target __pycache__ .next cache target storage
 Ignored File Patterns: *.log *.jar *.pdf *.class *.sqlite project_context.txt package-lock.json yarn.lock composer.lock *.ico pnpm-lock.yaml
 ===============================================
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/aws/install
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/aws/install
 
 #!/bin/sh
 # Copyright 2012-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
@@ -164,7 +164,7 @@ main() {
 main "$@" || exit 1
 // END OF FILE: aws/install
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/aws/README.md
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/aws/README.md
 
 # AWS CLI v2
 
@@ -222,7 +222,7 @@ need to remove the installation and the symlinks in the directories you
 specified.
 // END OF FILE: aws/README.md
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/aws/THIRD_PARTY_LICENSES
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/aws/THIRD_PARTY_LICENSES
 
 ** botocore; version 2 -- https://github.com/boto/botocore/tree/v2
 Botocore
@@ -1644,7 +1644,7 @@ licenses_ directory.
 .. _license-list:
 .. _GPL-compatible: http://www.gnu.org/licenses/license-list.html// END OF FILE: aws/THIRD_PARTY_LICENSES
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/cors.xml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/cors.xml
 
 <CORSConfiguration>
   <CORSRule>
@@ -1658,7 +1658,7 @@ licenses_ directory.
 </CORSConfiguration>
 // END OF FILE: cors.xml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/docker-compose.yml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/docker-compose.yml
 
 # Ce fichier ne gère QUE la base de données.
 services:
@@ -1680,9 +1680,6 @@ services:
     volumes:
       - minio_data:/data
     environment:
-      # ==============================================================================
-      #                         MODIFIEZ CES DEUX LIGNES
-      # ==============================================================================
       MINIO_ROOT_USER: junioradmin 
       MINIO_ROOT_PASSWORD: YourStrongPassword2025
       # ==============================================================================
@@ -1692,7 +1689,7 @@ volumes:
   scylla_data:
   minio_data:// END OF FILE: docker-compose.yml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/docker/docker-compose-stack.yml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/docker/docker-compose-stack.yml
 
 services:
   # SERVER: CONFIG SERVER -----------------------------------------------------------
@@ -1750,7 +1747,7 @@ networks:
     external: true
 // END OF FILE: docker/docker-compose-stack.yml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/docker/docker-compose.yml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/docker/docker-compose.yml
 
 services:
   organization-service:
@@ -1770,7 +1767,7 @@ networks:
   openia-main-network:
     external: true// END OF FILE: docker/docker-compose.yml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/docker/Dockerfile
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/docker/Dockerfile
 
 FROM openjdk:21-slim
 
@@ -1788,7 +1785,7 @@ EXPOSE 8080 8081
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -DSPRING_PROFILES_ACTIVE=$SPRING_PROFILES_ACTIVE -jar $SERVICE_NAME.jar"]
 // END OF FILE: docker/Dockerfile
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/.env
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/.env
 
 # Ce fichier est auto-généré par init_application.sh
 SYSTEM_ORGANIZATION_ID=73ba467d-9b2e-481a-827e-edbddc4f775d
@@ -1805,13 +1802,13 @@ TEMPLATE_PUSH_PLANNING_BOOKING_REQUESTED_TO_DRIVER_ID=0a1b2c3d-4e5f-6a7b-8c9d-0e
 TEMPLATE_PUSH_PLANNING_BOOKING_ACCEPTED_TO_CLIENT_ID=f1e2d3c4-b5a6-7890-1234-567890abcde0
 TEMPLATE_PUSH_PLANNING_RESERVATION_CANCELLED_ID=1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c5d6e// END OF FILE: .env
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/.gitattributes
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/.gitattributes
 
 /mvnw text eol=lf
 *.cmd text eol=crlf
 // END OF FILE: .gitattributes
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/.gitignore
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/.gitignore
 
 HELP.md
 target/
@@ -1852,7 +1849,7 @@ build/
 
 // END OF FILE: .gitignore
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/gitlab-ci/build.gitlab-ci.yml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/gitlab-ci/build.gitlab-ci.yml
 
 build:
   stage: build
@@ -1861,7 +1858,7 @@ build:
     - cp src/main/resources/firebase-service-account-key.example src/main/resources/firebase-service-account-key.json
     - mvn $MAVEN_CLI_OPTS compile// END OF FILE: gitlab-ci/build.gitlab-ci.yml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/gitlab-ci/ci_settings.xml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/gitlab-ci/ci_settings.xml
 
 <settings xmlns="http://maven.apache.org/SETTINGS/1.1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd">
@@ -1886,7 +1883,7 @@ build:
   </servers>
 </settings>// END OF FILE: gitlab-ci/ci_settings.xml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/gitlab-ci/deploy.gitlab-ci.yml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/gitlab-ci/deploy.gitlab-ci.yml
 
 deploy:
   stage: deploy
@@ -1908,7 +1905,7 @@ deploy:
 
 // END OF FILE: gitlab-ci/deploy.gitlab-ci.yml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/gitlab-ci/docker-build.gitlab-ci.yml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/gitlab-ci/docker-build.gitlab-ci.yml
 
 docker-build:
   stage: docker-build
@@ -1934,7 +1931,7 @@ docker-build:
       variables:
         SPRING_PROFILES_ACTIVE: "production"// END OF FILE: gitlab-ci/docker-build.gitlab-ci.yml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/gitlab-ci/general.gitlab-ci.yml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/gitlab-ci/general.gitlab-ci.yml
 
 variables:
   ENV_NAME: $CI_COMMIT_BRANCH
@@ -1969,7 +1966,7 @@ stages:
   - docker-build
   - deploy// END OF FILE: gitlab-ci/general.gitlab-ci.yml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/gitlab-ci/package.gitlab-ci.yml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/gitlab-ci/package.gitlab-ci.yml
 
 package:
   stage: package
@@ -1987,7 +1984,7 @@ package:
     - master
     - dev// END OF FILE: gitlab-ci/package.gitlab-ci.yml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/.gitlab-ci.yml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/.gitlab-ci.yml
 
 include:
   - local: "/gitlab-ci/general.gitlab-ci.yml"
@@ -1997,7 +1994,7 @@ include:
   - local: "/gitlab-ci/deploy.gitlab-ci.yml"
 // END OF FILE: .gitlab-ci.yml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/init_application.sh
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/init_application.sh
 
 #!/bin/bash
 
@@ -2127,7 +2124,7 @@ echo -e "\n🎉 --- INITIALISATION TERMINÉE ---"
 echo "Le fichier '$ENV_FILE' a été créé/mis à jour avec succès."
 echo "Veuillez REDÉMARRER votre backend Java pour qu'il prenne en compte les nouvelles variables d'environnement."// END OF FILE: init_application.sh
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/mvnw
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/mvnw
 
 #!/bin/sh
 # ----------------------------------------------------------------------------
@@ -2390,7 +2387,7 @@ clean || :
 exec_maven "$@"
 // END OF FILE: mvnw
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/mvnw.cmd
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/mvnw.cmd
 
 <# : batch portion
 @REM ----------------------------------------------------------------------------
@@ -2543,7 +2540,7 @@ try {
 Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
 // END OF FILE: mvnw.cmd
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/policy.json
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/policy.json
 
 {
     "Version": "2012-10-17",
@@ -2562,7 +2559,7 @@ Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
 }
 // END OF FILE: policy.json
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/pom.xml
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/pom.xml
 
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -2772,7 +2769,7 @@ Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
     </distributionManagement>
 </project>// END OF FILE: pom.xml
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/prompter.sh
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/prompter.sh
 
 #!/bin/bash
 
@@ -2927,7 +2924,7 @@ fi
 exit 0
 // END OF FILE: prompter.sh
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/README.md
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/README.md
 
 🚗 Freelance Driver – Backend
 
@@ -3022,7 +3019,7 @@ Supprimer aussi les volumes (données)	docker compose down -v
 Voir les logs de ScyllaDB	docker compose logs -f
 // END OF FILE: README.md
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/restart-dev.sh
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/restart-dev.sh
 
 Telecharger aws et configurer
 
@@ -3136,7 +3133,7 @@ echo "☕ Étape 5/5: Nettoyage du projet Maven et lancement de l'application Sp
 2025-09-07T18:53:03.507+01:00  WARN 395806 --- [driver-backend] [or-http-epoll-4] c.f.d.controller.MockProductController   : [MOCK-CONTROLLER] Création d'un produit pour l'organisation 4b869286-feb3-4e80-9dc6-03d34790eadc: Yaounde
 // END OF FILE: restart-dev.sh
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/CassandraConfig.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/config/CassandraConfig.java
 
 package com.freelance.driver_backend.config;
 
@@ -3243,7 +3240,7 @@ public class CassandraConfig extends AbstractCassandraConfiguration {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/config/CassandraConfig.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/DotenvConfig.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/config/DotenvConfig.java
 
 package com.freelance.driver_backend.config;
 
@@ -3261,7 +3258,7 @@ public class DotenvConfig {
 }
 // END OF FILE: src/main/java/com/freelance/driver_backend/config/DotenvConfig.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/FirebaseConfig.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/config/FirebaseConfig.java
 
 package com.freelance.driver_backend.config;
 
@@ -3318,7 +3315,7 @@ public class FirebaseConfig {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/config/FirebaseConfig.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/JwtConfig.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/config/JwtConfig.java
 
 package com.freelance.driver_backend.config;
 
@@ -3381,7 +3378,7 @@ public class JwtConfig {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/config/JwtConfig.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/SecurityConfig.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/config/SecurityConfig.java
 
 package com.freelance.driver_backend.config;
 
@@ -3471,7 +3468,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Spécifiez les origines exactes de votre frontend en production
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:19006", "http://localhost:8081", "exp://*", "http://192.168.43.4:8081", "http://192.168.43.204:8081","http://192.168.43.204:19006","http://10.166.235.204:8081","http://10.166.235.204:19006","http://10.2.27.171:8081","http://10.2.27.171:19006","http://172.16.0.202:8081")); // IP à adapter
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:19006", "http://localhost:8081", "exp://*", "http://192.168.43.4:8081", "http://192.168.43.204:8081","http://192.168.43.204:19006","http://10.166.235.204:8081","http://10.166.235.204:19006","http://10.2.27.171:8081","http://10.2.27.171:19006","http://192.168.1.112:8081")); // IP à adapter
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -3506,7 +3503,7 @@ public class SecurityConfig {
 
 // END OF FILE: src/main/java/com/freelance/driver_backend/config/SecurityConfig.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/SocketIOConfig.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/config/SocketIOConfig.java
 
 // src/main/java/com/freelance/driver_backend/config/SocketIOConfig.java
 
@@ -3539,7 +3536,7 @@ public class SocketIOConfig {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/config/SocketIOConfig.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/ThymeleafConfig.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/config/ThymeleafConfig.java
 
 package com.freelance.driver_backend.config;
 
@@ -3575,7 +3572,7 @@ public class ThymeleafConfig {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/config/ThymeleafConfig.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/config/WebClientConfig.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/config/WebClientConfig.java
 
 package com.freelance.driver_backend.config;
 
@@ -3719,7 +3716,7 @@ public class WebClientConfig {
 }
 // END OF FILE: src/main/java/com/freelance/driver_backend/config/WebClientConfig.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/AddressController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/AddressController.java
 
 
 
@@ -3910,7 +3907,7 @@ public class AddressController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/AddressController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/AnnouncementController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/AnnouncementController.java
 
 
 package com.freelance.driver_backend.controller;
@@ -4264,7 +4261,7 @@ public class AnnouncementController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/AnnouncementController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/AuthController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/AuthController.java
 
 package com.freelance.driver_backend.controller;
 
@@ -4441,7 +4438,7 @@ public class AuthController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/AuthController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/DriverSearchController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/DriverSearchController.java
 
 
 
@@ -4476,7 +4473,7 @@ public class DriverSearchController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/DriverSearchController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/ExperienceController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/ExperienceController.java
 
 
 // PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/ExperienceController.java
@@ -4678,7 +4675,7 @@ public class ExperienceController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/ExperienceController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/MediaController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/MediaController.java
 
 package com.freelance.driver_backend.controller;
 
@@ -4746,7 +4743,7 @@ public class MediaController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/MediaController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/MockProductController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/MockProductController.java
 
 package com.freelance.driver_backend.controller;
 
@@ -4915,7 +4912,7 @@ public class MockProductController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/MockProductController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/MockUserController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/MockUserController.java
 
 package com.freelance.driver_backend.controller;
 
@@ -4946,7 +4943,7 @@ public class MockUserController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/MockUserController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/NotificationConfigController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/NotificationConfigController.java
 
 // Dans src/main/java/com/freelance/driver_backend/controller/NotificationConfigController.java
 
@@ -5060,7 +5057,7 @@ public class NotificationConfigController {
     
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/NotificationConfigController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/NotificationController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/NotificationController.java
 
 package com.freelance.driver_backend.controller;
 
@@ -5109,7 +5106,7 @@ public class NotificationController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/NotificationController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/OnboardingController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/OnboardingController.java
 
 package com.freelance.driver_backend.controller;
 
@@ -5157,7 +5154,7 @@ public class OnboardingController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/OnboardingController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/PlanningController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/PlanningController.java
 
 
 package com.freelance.driver_backend.controller;
@@ -5539,7 +5536,7 @@ public class PlanningController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/PlanningController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/ProfileController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/ProfileController.java
 
 
 
@@ -5701,7 +5698,7 @@ public class ProfileController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/ProfileController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/ProfileRoleController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/ProfileRoleController.java
 
 package com.freelance.driver_backend.controller;
 
@@ -5796,7 +5793,7 @@ public class ProfileRoleController {
 
 // END OF FILE: src/main/java/com/freelance/driver_backend/controller/ProfileRoleController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/ReviewController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/ReviewController.java
 
 
 
@@ -5914,7 +5911,7 @@ public class ReviewController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/ReviewController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/VehicleController.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/VehicleController.java
 
 
 // PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/VehicleController.java
@@ -6124,7 +6121,7 @@ public class VehicleController {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/controller/VehicleController.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/DriverBackendApplication.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/DriverBackendApplication.java
 
 package com.freelance.driver_backend;
 
@@ -6145,7 +6142,7 @@ public class DriverBackendApplication {
    
 }// END OF FILE: src/main/java/com/freelance/driver_backend/DriverBackendApplication.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/CreateProductRequest.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/CreateProductRequest.java
 
 // src/main/java/com/freelance/driver_backend/dto/CreateProductRequest.java
 
@@ -6205,7 +6202,7 @@ public class CreateProductRequest {
     private Map<String, String> metadata;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/CreateProductRequest.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/CreateReviewRequest.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/CreateReviewRequest.java
 
 package com.freelance.driver_backend.dto;
 
@@ -6221,7 +6218,7 @@ public class CreateReviewRequest {
 }
 // END OF FILE: src/main/java/com/freelance/driver_backend/dto/CreateReviewRequest.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/ChatUserCreationPayload.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/ChatUserCreationPayload.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6248,7 +6245,7 @@ public class ChatUserCreationPayload {
     private Map<String, String> customJson;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/ChatUserCreationPayload.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/ChatUserCreationResponse.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/ChatUserCreationResponse.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6271,7 +6268,7 @@ public class ChatUserCreationResponse {
     // On peut omettre les autres champs pour la simplicité
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/ChatUserCreationResponse.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/ChatUserLoginPayload.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/ChatUserLoginPayload.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6289,7 +6286,7 @@ public class ChatUserLoginPayload {
 }
 // END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/ChatUserLoginPayload.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/ChatUserLoginResponse.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/ChatUserLoginResponse.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6301,7 +6298,7 @@ public class ChatUserLoginResponse {
     private String token;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/ChatUserLoginResponse.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/LoginRequest.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/LoginRequest.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6318,7 +6315,7 @@ public class LoginRequest {
     private String password;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/LoginRequest.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/LoginResponse.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/LoginResponse.java
 
 // Fichier : src/main/java/com/freelance/driver_backend/dto/external/LoginResponse.java
 package com.freelance.driver_backend.dto.external;
@@ -6362,7 +6359,7 @@ public class LoginResponse {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/LoginResponse.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/NotificationRequest.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/NotificationRequest.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6392,7 +6389,7 @@ public class NotificationRequest {
     private Map<String, String> data;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/NotificationRequest.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/OAuthTokenResponse.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/OAuthTokenResponse.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6414,7 +6411,7 @@ public class OAuthTokenResponse {
     private String scope;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/OAuthTokenResponse.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/OrganisationCreationRequest.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/OrganisationCreationRequest.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6477,7 +6474,7 @@ public class OrganisationCreationRequest {
     private Integer numberOfEmployees;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/OrganisationCreationRequest.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/OrganisationDto.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/OrganisationDto.java
 
 // Fichier : src/main/java/com/freelance/driver_backend/dto/external/OrganisationDto.java
 package com.freelance.driver_backend.dto.external;
@@ -6498,7 +6495,7 @@ public class OrganisationDto {
     // mais pour le moment, c'est suffisant.
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/OrganisationDto.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/RegistrationRequest.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/RegistrationRequest.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6531,7 +6528,7 @@ public class RegistrationRequest {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/RegistrationRequest.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/UploadMediaResponse.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/UploadMediaResponse.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6550,7 +6547,7 @@ public class UploadMediaResponse {
     private String url;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/UploadMediaResponse.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/external/UserDto.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/external/UserDto.java
 
 package com.freelance.driver_backend.dto.external;
 
@@ -6584,7 +6581,7 @@ public class UserDto {
     private OffsetDateTime updatedAt;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/external/UserDto.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/onboarding/ChatSessionInfo.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/onboarding/ChatSessionInfo.java
 
 package com.freelance.driver_backend.dto.onboarding;
 
@@ -6599,7 +6596,7 @@ public class ChatSessionInfo {
     private ChatUserCreationResponse userDetails;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/onboarding/ChatSessionInfo.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/onboarding/ClientOnboardingRequest.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/onboarding/ClientOnboardingRequest.java
 
 package com.freelance.driver_backend.dto.onboarding;
 
@@ -6620,7 +6617,7 @@ public class ClientOnboardingRequest {
     private String otp;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/onboarding/ClientOnboardingRequest.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/onboarding/DriverOnboardingRequest.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/onboarding/DriverOnboardingRequest.java
 
 package com.freelance.driver_backend.dto.onboarding;
 
@@ -6645,7 +6642,7 @@ public class DriverOnboardingRequest {
     private String otp;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/onboarding/DriverOnboardingRequest.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/onboarding/OnboardingResponse.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/onboarding/OnboardingResponse.java
 
 package com.freelance.driver_backend.dto.onboarding;
 
@@ -6660,7 +6657,7 @@ public class OnboardingResponse {
     private ChatSessionInfo chatSession; // <-- AJOUTE CETTE LIGNE
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/onboarding/OnboardingResponse.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/RateCriteriaRequest.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/RateCriteriaRequest.java
 
 package com.freelance.driver_backend.dto;
 
@@ -6675,7 +6672,7 @@ public class RateCriteriaRequest {
 }
 // END OF FILE: src/main/java/com/freelance/driver_backend/dto/RateCriteriaRequest.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/dto/UserSessionContextDto.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/dto/UserSessionContextDto.java
 
 package com.freelance.driver_backend.dto;
 
@@ -6709,7 +6706,7 @@ public class UserSessionContextDto {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/dto/UserSessionContextDto.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/initializer/ApplicationInitializer.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/initializer/ApplicationInitializer.java
 
 
 
@@ -6976,7 +6973,7 @@ public class ApplicationInitializer implements CommandLineRunner {
 
 // END OF FILE: src/main/java/com/freelance/driver_backend/initializer/ApplicationInitializer.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/AnnouncementStatus.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/AnnouncementStatus.java
 
 package com.freelance.driver_backend.model;
 
@@ -6991,7 +6988,7 @@ public enum AnnouncementStatus {
     CANCELLED // La course est annulée
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/AnnouncementStatus.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/ClientProfile.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/ClientProfile.java
 
 package com.freelance.driver_backend.model;
 
@@ -7052,7 +7049,7 @@ public class ClientProfile {
     private String language;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/ClientProfile.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/DesignTemplate.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/DesignTemplate.java
 
 package com.freelance.driver_backend.model;
 
@@ -7074,7 +7071,7 @@ public class DesignTemplate {
     private String subject;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/DesignTemplate.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/DeviceToken.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/DeviceToken.java
 
 package com.freelance.driver_backend.model;
 
@@ -7098,7 +7095,7 @@ public class DeviceToken {
     private String token;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/DeviceToken.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/DriverProfile.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/DriverProfile.java
 
 package com.freelance.driver_backend.model;
 
@@ -7156,7 +7153,7 @@ public class DriverProfile {
 }
 // END OF FILE: src/main/java/com/freelance/driver_backend/model/DriverProfile.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/EmailTemplate.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/EmailTemplate.java
 
 package com.freelance.driver_backend.model;
 
@@ -7188,7 +7185,7 @@ public class EmailTemplate {
     private String title;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/EmailTemplate.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/FirebaseSetting.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/FirebaseSetting.java
 
 package com.freelance.driver_backend.model;
 
@@ -7209,7 +7206,7 @@ public class FirebaseSetting {
     private String privateKey; // Stocker le JSON de la clé de service
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/FirebaseSetting.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/mock/MockOrganisation.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/mock/MockOrganisation.java
 
 package com.freelance.driver_backend.model.mock; // <-- Vérifiez ce package
 
@@ -7234,7 +7231,7 @@ public class MockOrganisation {
     private UUID ownerUserId;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/mock/MockOrganisation.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/mock/MockUser.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/mock/MockUser.java
 
 // Fichier : src/main/java/com/freelance/driver_backend/model/mock/MockUser.java
 package com.freelance.driver_backend.model.mock;
@@ -7272,7 +7269,7 @@ public class MockUser {
     private UUID organisationId;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/mock/MockUser.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/OtpVerification.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/OtpVerification.java
 
 package com.freelance.driver_backend.model;
 
@@ -7293,7 +7290,7 @@ public class OtpVerification {
     private Instant expiresAt;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/OtpVerification.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/Product.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/Product.java
 
 // src/main/java/com/freelance/driver_backend/model/Product.java
 
@@ -7405,7 +7402,7 @@ public class Product {
     public UUID getOrganizationId() { return this.key != null ? this.key.getOrganizationId() : null; }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/Product.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/ProductKey.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/ProductKey.java
 
 package com.freelance.driver_backend.model;
 
@@ -7430,7 +7427,7 @@ public class ProductKey implements Serializable {
     private UUID id;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/ProductKey.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/PushTemplate.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/PushTemplate.java
 
 package com.freelance.driver_backend.model;
 
@@ -7451,7 +7448,7 @@ public class PushTemplate {
     private String body;    // Ex: "Acceptez la course de {{clientName}} pour {{destination}}."
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/PushTemplate.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/Resource.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/Resource.java
 
 
 package com.freelance.driver_backend.model;
@@ -7556,7 +7553,7 @@ public void setOrganizationId(UUID id) { if(this.key == null) this.key = new Res
 public void setCategoryId(String id) { if(this.key == null) this.key = new ResourceKey(); this.key.setCategoryId(id); }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/Resource.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/ResourceKey.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/ResourceKey.java
 
 package com.freelance.driver_backend.model;
 
@@ -7583,7 +7580,7 @@ public class ResourceKey implements Serializable {
     private UUID resourceId;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/ResourceKey.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/Review.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/Review.java
 
 package com.freelance.driver_backend.model;
 
@@ -7614,7 +7611,7 @@ public class Review {
 }
 // END OF FILE: src/main/java/com/freelance/driver_backend/model/Review.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/model/SmtpSetting.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/model/SmtpSetting.java
 
 package com.freelance.driver_backend.model;
 
@@ -7650,7 +7647,7 @@ public class SmtpSetting {
     private String senderName;
 }// END OF FILE: src/main/java/com/freelance/driver_backend/model/SmtpSetting.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/ClientProfileRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/ClientProfileRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7672,7 +7669,7 @@ public interface ClientProfileRepository extends ReactiveCassandraRepository<Cli
 }
 // END OF FILE: src/main/java/com/freelance/driver_backend/repository/ClientProfileRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/DesignTemplateRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/DesignTemplateRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7682,7 +7679,7 @@ import java.util.UUID;
 
 public interface DesignTemplateRepository extends ReactiveCassandraRepository<DesignTemplate, UUID> {}// END OF FILE: src/main/java/com/freelance/driver_backend/repository/DesignTemplateRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/DeviceTokenRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/DeviceTokenRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7697,7 +7694,7 @@ public interface DeviceTokenRepository extends ReactiveCassandraRepository<Devic
     Flux<DeviceToken> findByUserId(UUID userId);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/repository/DeviceTokenRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/DriverProfileRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/DriverProfileRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7718,7 +7715,7 @@ public interface DriverProfileRepository extends ReactiveCassandraRepository<Dri
     Mono<DriverProfile> findByUserId(UUID userId);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/repository/DriverProfileRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/EmailTemplateRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/EmailTemplateRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7728,7 +7725,7 @@ import java.util.UUID;
 
 public interface EmailTemplateRepository extends ReactiveCassandraRepository<EmailTemplate, UUID> {}// END OF FILE: src/main/java/com/freelance/driver_backend/repository/EmailTemplateRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/FirebaseSettingRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/FirebaseSettingRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7738,7 +7735,7 @@ import java.util.UUID;
 
 public interface FirebaseSettingRepository extends ReactiveCassandraRepository<FirebaseSetting, UUID> {}// END OF FILE: src/main/java/com/freelance/driver_backend/repository/FirebaseSettingRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/mock/MockOrganisationRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/mock/MockOrganisationRepository.java
 
 package com.freelance.driver_backend.repository.mock;
 
@@ -7751,9 +7748,31 @@ public interface MockOrganisationRepository extends ReactiveCassandraRepository<
     Flux<MockOrganisation> findByOwnerUserId(UUID ownerUserId);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/repository/mock/MockOrganisationRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/mock/MockUserRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/mock/MockUserCassandraRepository.java
 
-package com.freelance.driver_backend.repository;
+package com.freelance.driver_backend.repository.mock;
+
+import com.freelance.driver_backend.model.mock.MockUser;
+import org.springframework.data.cassandra.repository.AllowFiltering;
+import org.springframework.data.cassandra.repository.ReactiveCassandraRepository;
+import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Mono;
+
+import java.util.UUID;
+
+@Repository
+public interface MockUserCassandraRepository extends ReactiveCassandraRepository<MockUser, UUID> {
+    
+    @AllowFiltering
+    Mono<MockUser> findByEmail(String email);
+    
+    @AllowFiltering
+    Mono<MockUser> findByUsername(String username);
+}// END OF FILE: src/main/java/com/freelance/driver_backend/repository/mock/MockUserCassandraRepository.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/mock/MockUserRepository.java
+
+package com.freelance.driver_backend.repository.mock;
 
 import com.freelance.driver_backend.model.mock.MockUser;
 import org.springframework.data.cassandra.repository.AllowFiltering;
@@ -7773,7 +7792,7 @@ public interface MockUserRepository extends ReactiveCassandraRepository<MockUser
     Mono<MockUser> findByUsername(String username);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/repository/mock/MockUserRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/OtpVerificationRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/OtpVerificationRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7786,7 +7805,7 @@ public interface OtpVerificationRepository extends ReactiveCassandraRepository<O
     // Spring Data se charge de tout, cette interface peut rester vide.
 }// END OF FILE: src/main/java/com/freelance/driver_backend/repository/OtpVerificationRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/ProductRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/ProductRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7813,7 +7832,7 @@ public interface ProductRepository extends ReactiveCassandraRepository<Product, 
     Flux<Product> findByReservedByDriverId(UUID driverId);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/repository/ProductRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/PushTemplateRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/PushTemplateRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7823,7 +7842,7 @@ import java.util.UUID;
 
 public interface PushTemplateRepository extends ReactiveCassandraRepository<PushTemplate, UUID> {}// END OF FILE: src/main/java/com/freelance/driver_backend/repository/PushTemplateRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/ResourceRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/ResourceRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7847,7 +7866,7 @@ public interface ResourceRepository extends ReactiveCassandraRepository<Resource
     Flux<Resource> findByKeyCategoryId(String categoryId);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/repository/ResourceRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/ReviewRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/ReviewRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7863,7 +7882,7 @@ public interface ReviewRepository extends ReactiveCassandraRepository<Review, UU
 }
 // END OF FILE: src/main/java/com/freelance/driver_backend/repository/ReviewRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/repository/SmtpSettingRepository.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/repository/SmtpSettingRepository.java
 
 package com.freelance.driver_backend.repository;
 
@@ -7873,7 +7892,7 @@ import java.util.UUID;
 
 public interface SmtpSettingRepository extends ReactiveCassandraRepository<SmtpSetting, UUID> {}// END OF FILE: src/main/java/com/freelance/driver_backend/repository/SmtpSettingRepository.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/AuthService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/external/AuthService.java
 
 package com.freelance.driver_backend.service.external;
 
@@ -7917,7 +7936,7 @@ public interface AuthService {
     
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/AuthService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/AuthServiceWebClientImpl.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/external/AuthServiceWebClientImpl.java
 
 package com.freelance.driver_backend.service.external;
 
@@ -8168,7 +8187,7 @@ public class AuthServiceWebClientImpl implements AuthService {
     } */
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/AuthServiceWebClientImpl.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/ChatService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/external/ChatService.java
 
 package com.freelance.driver_backend.service.external;
 
@@ -8182,7 +8201,7 @@ public interface ChatService {
     Mono<ChatUserLoginResponse> loginChatUser(ChatUserLoginPayload payload);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/ChatService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/ChatServiceWebClientImpl.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/external/ChatServiceWebClientImpl.java
 
 package com.freelance.driver_backend.service.external;
 
@@ -8241,7 +8260,7 @@ public class ChatServiceWebClientImpl implements ChatService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/ChatServiceWebClientImpl.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/mock/MockNotificationServiceImpl.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/external/mock/MockNotificationServiceImpl.java
 
 package com.freelance.driver_backend.service.external.mock;
 
@@ -8374,7 +8393,7 @@ public class MockNotificationServiceImpl implements NotificationService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/mock/MockNotificationServiceImpl.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/mock/MockOrganisationServiceImpl.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/external/mock/MockOrganisationServiceImpl.java
 
 package com.freelance.driver_backend.service.external.mock;
 
@@ -8492,7 +8511,7 @@ public class MockOrganisationServiceImpl implements OrganisationService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/mock/MockOrganisationServiceImpl.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/NotificationService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/external/NotificationService.java
 
 package com.freelance.driver_backend.service.external;
 
@@ -8516,7 +8535,7 @@ public interface NotificationService {
 
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/NotificationService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/external/OrganisationService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/external/OrganisationService.java
 
 package com.freelance.driver_backend.service.external;
 
@@ -8534,7 +8553,7 @@ public interface OrganisationService {
     Mono<OrganisationDto> getOrganisationById(UUID organisationId, String userBearerToken, String publicKey);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/external/OrganisationService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/FcmHttpClient.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/FcmHttpClient.java
 
 package com.freelance.driver_backend.service;
 
@@ -8645,7 +8664,7 @@ public class FcmHttpClient {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/FcmHttpClient.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/FirebaseService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/FirebaseService.java
 
 package com.freelance.driver_backend.service;
 
@@ -8687,7 +8706,7 @@ public class FirebaseService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/FirebaseService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/internal/ExternalMediaStorageService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/internal/ExternalMediaStorageService.java
 
 package com.freelance.driver_backend.service.internal;
 
@@ -8938,7 +8957,7 @@ public class ExternalMediaStorageService implements StorageService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/internal/ExternalMediaStorageService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/internal/ResourceServiceLocalImpl.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/internal/ResourceServiceLocalImpl.java
 
 package com.freelance.driver_backend.service.internal;
 
@@ -9013,7 +9032,7 @@ public class ResourceServiceLocalImpl implements ResourceService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/internal/ResourceServiceLocalImpl.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/JwtService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/JwtService.java
 
 package com.freelance.driver_backend.service;
 
@@ -9059,7 +9078,7 @@ public class JwtService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/JwtService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/LoginService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/LoginService.java
 
 
 /* package com.freelance.driver_backend.service;
@@ -9208,13 +9227,13 @@ public class LoginService {
 }
 // END OF FILE: src/main/java/com/freelance/driver_backend/service/LoginService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/MockUserService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/MockUserService.java
 
 package com.freelance.driver_backend.service;
 
 import com.freelance.driver_backend.dto.external.*;
 import com.freelance.driver_backend.model.mock.MockUser;
-import com.freelance.driver_backend.repository.MockUserRepository;
+import com.freelance.driver_backend.repository.mock.MockUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -9318,7 +9337,7 @@ public class MockUserService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/MockUserService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/NotificationTriggerService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/NotificationTriggerService.java
 
 
 
@@ -9672,7 +9691,7 @@ public class NotificationTriggerService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/NotificationTriggerService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/OnboardingService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/OnboardingService.java
 
 package com.freelance.driver_backend.service;
 
@@ -9910,8 +9929,9 @@ public class OnboardingService {
      * et la création de son organisation via l'API externe réelle. (Inchangée)
      */
 
-    //On commentes l'utilisation de m2mBearerToken
-    private Mono<AllInfo> createAuthUserAndOrganization(String email, String password, String firstName, String lastName, String phoneNumber, String companyName, String companyDescription) {
+    
+    //Version originale
+    /*private Mono<AllInfo> createAuthUserAndOrganization(String email, String password, String firstName, String lastName, String phoneNumber, String companyName, String companyDescription) {
         LoginRequest loginRequest = new LoginRequest(email, password);
 
         return authService.getClientCredentialsToken(oauthClientId, oauthClientSecret)
@@ -9954,8 +9974,48 @@ public class OnboardingService {
                     });
             });
     }
-    
+    */
 
+
+
+    //On commentes l'utilisation de m2mBearerToken
+
+    private Mono<AllInfo> createAuthUserAndOrganization(String email, String password, String firstName, String lastName, String phoneNumber, String companyName, String companyDescription) {
+        LoginRequest loginRequest = new LoginRequest(email, password);
+
+                return authService.loginUser(loginRequest, "jdjdjdkdke")
+                    .switchIfEmpty(Mono.error(new RuntimeException("Échec de la connexion de l'utilisateur déjà enregistré pour " + email + ". Vérifiez les identifiants.")))
+                    .doOnSuccess(loginResponse -> log.info("Étape 3/6: Connexion de l'utilisateur {} réussie. (ID: {})", loginResponse.getUser().getUsername(), loginResponse.getUser().getId()))
+                    .flatMap(loginResponse -> {
+                        LoginResponse.UserInfo registeredUser = loginResponse.getUser();
+                        String userBearerToken = "Bearer " + loginResponse.getAccessToken().getToken();
+
+                        String finalCompanyName = companyName.trim().isEmpty() ?
+                                                    (firstName.trim() + " " + lastName.trim() + "'s Business") :
+                                                    companyName.trim();
+                        String finalCompanyDescription = companyDescription.trim().isEmpty() ?
+                                                    ("Freelance services for " + (finalCompanyName.contains("'s Business") ? firstName : finalCompanyName)) :
+                                                    companyDescription.trim();
+
+                        OrganisationCreationRequest orgRequest = OrganisationCreationRequest.builder()
+                                .longName(finalCompanyName)
+                                .shortName(generateShortName(finalCompanyName))
+                                .description(finalCompanyDescription)
+                                .email(email)
+                                .build();
+
+                        log.info("Étape 4/6: Création de l'organisation pour l'utilisateur {} via l'API externe.", email);
+                        return organisationService.createOrganisation(orgRequest, userBearerToken, publicKey)
+                            .map(createdOrg -> {
+                                log.info("✅ Organisation '{}' (provenance: {}) créée. Données: {}",
+                                    createdOrg.getLongName(),
+                                    organisationService.getClass().getSimpleName(),
+                                    createdOrg);
+                                return new AllInfo(registeredUser, createdOrg, loginResponse);
+                            });
+                    });
+            
+    }
     
     /**
      * Construit la réponse finale à envoyer au frontend. (Inchangée)
@@ -9988,7 +10048,7 @@ public class OnboardingService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/OnboardingService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/ProfileService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/ProfileService.java
 
 
 
@@ -10463,7 +10523,7 @@ public class ProfileService {
 
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/ProfileService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/resource/MockResourceServiceImpl.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/resource/MockResourceServiceImpl.java
 
 package com.freelance.driver_backend.service.resource;
 
@@ -10624,7 +10684,7 @@ public class MockResourceServiceImpl implements ResourceService {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/resource/MockResourceServiceImpl.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/resource/ResourceService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/resource/ResourceService.java
 
 package com.freelance.driver_backend.service.resource;
 
@@ -10650,7 +10710,7 @@ public interface ResourceService {
     Mono<Void> deleteResource(ResourceKey key);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/resource/ResourceService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/ResourceService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/ResourceService.java
 
 package com.freelance.driver_backend.service;
 
@@ -10667,7 +10727,7 @@ public interface ResourceService {
     Mono<Void> deleteProduct(UUID organizationId, UUID productId, String bearerToken, String publicKey);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/ResourceService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/SocketIOService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/SocketIOService.java
 
 // src/main/java/com/freelance/driver_backend/service/SocketIOService.java
 
@@ -10705,7 +10765,7 @@ public class SocketIOService {
     // mais il est souvent plus simple d'injecter directement le SocketIOServer dans les contrôleurs.
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/SocketIOService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/service/StorageService.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/service/StorageService.java
 
 package com.freelance.driver_backend.service;
 
@@ -10743,7 +10803,7 @@ public interface StorageService {
     Mono<Void> deleteFile(String mediaUri);
 }// END OF FILE: src/main/java/com/freelance/driver_backend/service/StorageService.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/util/JwtUtil.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/util/JwtUtil.java
 
 package com.freelance.driver_backend.util;
 
@@ -10772,7 +10832,7 @@ public class JwtUtil {
     }
 }// END OF FILE: src/main/java/com/freelance/driver_backend/util/JwtUtil.java
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/resources/application.properties
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/resources/application.properties
 
 # ===============================================
 # IDENTIFICATION DE L'APPLICATION
@@ -10861,7 +10921,7 @@ socketio.server.host=${SOCKETIO_SERVER_HOST:0.0.0.0}
 socketio.server.port=${SOCKETIO_SERVER_PORT:9092}
 freelancedriver.firebase.project-id=${FREELANCE_DRIVER_FIREBASE_PROJECT_ID:freelance-driver-app}// END OF FILE: src/main/resources/application.properties
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/resources/firebase-service-account-key .example
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/resources/firebase-service-account-key .example
 
 {
   "type": "service_account",
@@ -10878,7 +10938,7 @@ freelancedriver.firebase.project-id=${FREELANCE_DRIVER_FIREBASE_PROJECT_ID:freel
 }
 // END OF FILE: src/main/resources/firebase-service-account-key .example
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/resources/firebase-service-account-key.example
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/resources/firebase-service-account-key.example
 
 {
   "type": "service_account",
@@ -10895,7 +10955,7 @@ freelancedriver.firebase.project-id=${FREELANCE_DRIVER_FIREBASE_PROJECT_ID:freel
 }
 // END OF FILE: src/main/resources/firebase-service-account-key.example
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/resources/firebase-service-account-key.json
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/resources/firebase-service-account-key.json
 
 {
   "type": "service_account",
@@ -10912,7 +10972,7 @@ freelancedriver.firebase.project-id=${FREELANCE_DRIVER_FIREBASE_PROJECT_ID:freel
 }
 // END OF FILE: src/main/resources/firebase-service-account-key.json
 
-//---> PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/test/java/com/freelance/driver_backend/DriverBackendApplicationTests.java
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/test/java/com/freelance/driver_backend/DriverBackendApplicationTests.java
 
 package com.freelance.driver_backend;
 
