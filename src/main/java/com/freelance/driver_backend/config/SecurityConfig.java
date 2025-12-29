@@ -28,17 +28,22 @@ public class SecurityConfig {
 
     // ==============================================================================
     //                       CHAÎNE DE FILTRES DE SÉCURITÉ UNIQUE
-    // Une seule chaîne de filtres pour gérer toutes les routes de l'API.
     // ==============================================================================
     
     @Bean
     @Order(0) // Priorité la plus haute
     public SecurityWebFilterChain apiFilterChain(ServerHttpSecurity http) throws Exception {
         http
+            // ===== CORRECTION 1 : Intégrer la configuration CORS dans la chaîne de sécurité =====
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            
             // Appliquer cette configuration à toutes les routes sous /api/
             .securityMatcher(new PathPatternParserServerWebExchangeMatcher("/api/**"))
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
             .authorizeExchange(exchanges -> exchanges
+                // ===== CORRECTION 2 : Autoriser explicitement les requêtes de pré-vérification (preflight) OPTIONS =====
+                .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                
                 // --- Routes Publiques (permitAll) ---
                 
                 // POST publics (Login, Register, Onboarding)
@@ -53,7 +58,7 @@ public class SecurityConfig {
                     "/api/announcements", 
                     "/api/planning/published", 
                     "/api/planning/user/**",
-                    "/api/search/**",           // <--- AJOUTÉ ICI : Autorise la recherche de conducteurs
+                    "/api/search/**",           
                     "/api/reviews/user/**", 
                     "/api/profiles/user/**", 
                     "/api/vehicles/user/**", 
@@ -82,10 +87,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOriginPattern("*"); // Autorise toutes les origines (pour DEV)
+        
+        // IMPORTANT : Pour la production, vous devriez remplacer "*" par l'URL de votre frontend
+        // Par exemple : configuration.setAllowedOrigins(Arrays.asList("https://mon-app.com"));
+        configuration.addAllowedOriginPattern("*"); 
+        
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true);
+        
+        // Laisser à 'false' si vous ne gérez pas de cookies/sessions cross-domain
+        // configuration.setAllowCredentials(true); 
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

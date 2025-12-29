@@ -1,15 +1,35 @@
-# Ce fichier ne gère QUE la base de données.
+version: '3.8' # AJOUTÉ : Bonne pratique et nécessaire pour la gestion des ressources
+
 services:
   scylla-db:
     image: scylladb/scylla:latest
-    container_name: scylla-node-dev
-    # Expose le port 9042 du conteneur sur le port 9042 de votre machine (localhost)
+    container_name: scylla-node-prod # MODIFIÉ : Nom plus approprié pour le déploiement
     ports:
       - "9042:9042"
-    command: --smp 1 --memory 1G --developer-mode 1
+    
+    # AJOUTÉ : Section cruciale pour garantir l'allocation de mémoire par Docker
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 1G
+          
+    # MODIFIÉ : On retire "--memory 1G" car Docker gère maintenant la mémoire
+    command: --smp 1 --developer-mode 1 
+    
     volumes:
       - scylla_data:/var/lib/scylla
+    networks: # AJOUTÉ : Pour la communication entre conteneurs
+      - freelance-net
+
+  # AJOUTÉ : Le service MinIO pour avoir une configuration complète
+ 
 
 volumes:
   scylla_data:
-  
+
+# AJOUTÉ : Définition du réseau partagé
+networks:
+  freelance-net:
+    driver: bridge
