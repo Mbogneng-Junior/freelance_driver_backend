@@ -1,5 +1,5 @@
 Project Context From: /home/mbogneng-junior/freelance-driver_Sylladb/backend
-Generated On: lun. 27 oct. 2025 20:57:24 WAT
+Generated On: lun. 29 déc. 2025 20:12:25 WAT
 ===============================================
 Ignored Directory Patterns: .* node_modules vendor build dist target __pycache__ .next cache target storage
 Ignored File Patterns: *.log *.jar *.pdf *.class *.sqlite project_context.txt package-lock.json yarn.lock composer.lock *.ico pnpm-lock.yaml
@@ -1812,9 +1812,13 @@ TEMPLATE_PUSH_PLANNING_RESERVATION_CANCELLED_ID=1b2c3d4e-5f6a-7b8c-9d0e-1f2a3b4c
 
 HELP.md
 target/
+build/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+!**/src/main/**/build/
+!**/src/test/**/build/
+aws/
 
 ### STS ###
 .apt_generated
@@ -1826,7 +1830,7 @@ target/
 .sts4-cache
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -1837,14 +1841,24 @@ target/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 ### VS Code ###
 .vscode/
 
+# OS files
+.DS_Store
+Thumbs.db
 
+# Logs
+*.log
+
+# Gradle
+.gradle/
+
+# Maven
+.mvn/
+
+# Firebase/Secrets
 /src/main/resources/firebase-service-account-key.json
 
 // END OF FILE: .gitignore
@@ -2926,97 +2940,33 @@ exit 0
 
 //---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/README.md
 
-🚗 Freelance Driver – Backend
+echo "🛑 Étape 1/5: Arrêt et suppression des conteneurs et volumes Docker..."
+docker compose down -v
+echo "✅ Conteneurs et volumes supprimés."
+echo ""
 
-Bienvenue dans le backend de Freelance Driver, l'application dédiée aux chauffeurs freelances.
 
-Ce service central gère toute la logique métier, la gestion des utilisateurs, des courses, et expose une API REST consommée par les applications clientes.
-🛠️ Technologies utilisées
-
-    Spring Boot : Cadre principal du backend Java.
-
-    ScyllaDB : Base de données NoSQL ultra-performante.
-
-    Docker / Docker Compose : Pour un environnement reproductible.
-
-📋 Prérequis
-
-Avant de commencer, assurez-vous d’avoir les éléments suivants installés :
-
-    Git – Pour cloner le projet.
-
-    JDK 17 (ou plus récent) – Pour compiler et exécuter le projet Java.
-
-    Docker et Docker Compose – Indispensables pour exécuter ScyllaDB.
-
-    Un IDE Java (IntelliJ IDEA, VSCode avec Extension Pack for Java, Eclipse…).
-
-🚀 Démarrage Rapide
-
-Voici les étapes à suivre pour mettre en place votre environnement de développement en moins de 10 minutes.
-git clone <URL_DE_VOTRE_DEPOT_GIT>
-cd driver-backend
-
-🐳 Étape 2 : Installer Docker (si nécessaire)
-
-Sur Windows / macOS :
-
-    Installez Docker Desktop.
-
-Sur Linux (Ubuntu, Debian, Kali...) :
-
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-# Déconnectez-vous puis reconnectez-vous pour appliquer les permissions.
-Vérifiez l’installation :
-docker --version
-
-🗃️ Étape 3 : Démarrer la base de données ScyllaDB
-
-Depuis la racine du projet :
+# --- ÉTAPE 2: RELANCE DE L'INFRASTRUCTURE ---
+echo "🚀 Étape 2/5: Démarrage des nouveaux conteneurs Docker (ScyllaDB & MinIO)..."
 docker compose up -d
+echo "✅ Conteneurs démarrés. Attente de 10 secondes pour leur stabilisation..."
+sleep 10
+echo ""
 
-Vérifiez que le conteneur est bien lancé :
-docker ps
 
-Vous devriez voir un conteneur nommé scylla-node-dev avec le statut Up.
+# --- ÉTAPE 3: CONFIGURATION DE SCYLLADB ---
+echo "🗄️ Étape 3/5: Création du keyspace dans ScyllaDB..."
+docker exec -it scylla-node-dev cqlsh -e "CREATE KEYSPACE IF NOT EXISTS freelanceBd WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };"
+echo "✅ Keyspace 'freelanceBd' créé."
+echo ""
 
-🧩 Étape 4 : Créer le schéma de la base de données
 
-Connectez-vous à ScyllaDB :
-docker exec -it scylla-node-dev cqlsh
 
-Dans la console cqlsh>, créez le keyspace :
 
-CREATE KEYSPACE IF NOT EXISTS freelanceBd
-WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
-Puis quittez :
-
-EXIT;
-
-🧪 Étape 5 : Lancer l'application Spring Boot
-
-    Ouvrez le projet dans votre IDE préféré.
-
-    Le fichier src/main/resources/application.properties est déjà configuré pour se connecter à ScyllaDB via Docker.
-
-Depuis l'IDE :
-
-    Lancez la classe DriverBackendApplication.java (méthode main).
-
-Depuis le terminal :
+# --- ÉTAPE 5: LANCEMENT DU BACKEND SPRING BOOT ---
+echo "☕ Étape 5/5: Nettoyage du projet Maven et lancement de l'application Spring Boot..."
+./mvnw clean
 ./mvnw spring-boot:run
-Si tout fonctionne, vous verrez un message de type :
-
-... Started DriverBackendApplication in X.XXX seconds.
-✅ Votre environnement est prêt !
-
-🧰 Commandes Docker utiles
-Action	Commande
-Arrêter la base de données	docker compose down
-Supprimer aussi les volumes (données)	docker compose down -v
-Voir les logs de ScyllaDB	docker compose logs -f
 // END OF FILE: README.md
 
 //---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/restart-dev.sh
@@ -3059,30 +3009,6 @@ Default output format [None]:
 
     (C'est le format de sortie le plus lisible et le plus facile à utiliser dans des scripts.)
 
-#!/bin/bash
-# Un script simple pour réinitialiser complètement l'environnement de développement.
-# Exécutez-le depuis la racine de votre projet driver-backend.
-
-# --- ÉTAPE 1: ARRÊT ET NETTOYAGE COMPLET ---
-echo "🛑 Étape 1/5: Arrêt et suppression des conteneurs et volumes Docker..."
-docker compose down -v
-echo "✅ Conteneurs et volumes supprimés."
-echo ""
-
-
-# --- ÉTAPE 2: RELANCE DE L'INFRASTRUCTURE ---
-echo "🚀 Étape 2/5: Démarrage des nouveaux conteneurs Docker (ScyllaDB & MinIO)..."
-docker compose up -d
-echo "✅ Conteneurs démarrés. Attente de 10 secondes pour leur stabilisation..."
-sleep 10
-echo ""
-
-
-# --- ÉTAPE 3: CONFIGURATION DE SCYLLADB ---
-echo "🗄️ Étape 3/5: Création du keyspace dans ScyllaDB..."
-docker exec -it scylla-node-dev cqlsh -e "CREATE KEYSPACE IF NOT EXISTS freelanceBd WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };"
-echo "✅ Keyspace 'freelanceBd' créé."
-echo ""
 
 
 # --- ÉTAPE 4: CONFIGURATION DE MINIO ---
@@ -3117,20 +3043,40 @@ echo "✅ Politique d'accès public en lecture appliquée au bucket."
 echo ""
 
 
+#!/bin/bash
+# Un script simple pour réinitialiser complètement l'environnement de développement.
+# Exécutez-le depuis la racine de votre projet driver-backend.
+
+# --- ÉTAPE 1: ARRÊT ET NETTOYAGE COMPLET ---
+echo "🛑 Étape 1/5: Arrêt et suppression des conteneurs et volumes Docker..."
+docker compose down -v
+echo "✅ Conteneurs et volumes supprimés."
+echo ""
+
+
+# --- ÉTAPE 2: RELANCE DE L'INFRASTRUCTURE ---
+echo "🚀 Étape 2/5: Démarrage des nouveaux conteneurs Docker (ScyllaDB & MinIO)..."
+docker compose up -d
+echo "✅ Conteneurs démarrés. Attente de 10 secondes pour leur stabilisation..."
+sleep 10
+echo ""
+
+
+# --- ÉTAPE 3: CONFIGURATION DE SCYLLADB ---
+echo "🗄️ Étape 3/5: Création du keyspace dans ScyllaDB..."
+docker exec -it scylla-node-dev cqlsh -e "CREATE KEYSPACE IF NOT EXISTS freelanceBd WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };"
+echo "✅ Keyspace 'freelanceBd' créé."
+echo ""
+
+
+
+
 # --- ÉTAPE 5: LANCEMENT DU BACKEND SPRING BOOT ---
 echo "☕ Étape 5/5: Nettoyage du projet Maven et lancement de l'application Spring Boot..."
 ./mvnw clean
 ./mvnw spring-boot:run
 
 
-
-
-025-09-07T18:40:30.343+01:00  WARN 395806 --- [driver-backend] [        s1-io-4] c.f.d.s.i.ResourceServiceLocalImpl       : [LOCAL-IMPL] Appel de MockProductController pour créer un produit/adresse.
-2025-09-07T18:40:30.375+01:00  WARN 395806 --- [driver-backend] [or-http-epoll-4] c.f.d.controller.MockProductController   : [MOCK-CONTROLLER] Création d'un produit pour l'organisation 4b869286-feb3-4e80-9dc6-03d34790eadc: Yaounder
-2025-09-07T18:53:03.496+01:00  INFO 395806 --- [driver-backend] [or-http-epoll-5] c.f.d.service.ProfileService             : ProfileService: Recherche du contexte pour l'utilisateur ID: 8e612830-8c11-11f0-9272-95a801879675
-2025-09-07T18:53:03.499+01:00  INFO 395806 --- [driver-backend] [        s1-io-4] c.f.d.service.ProfileService             : ProfileService: Profil DRIVER trouvé. Construction du contexte avec les données locales.
-2025-09-07T18:53:03.500+01:00  WARN 395806 --- [driver-backend] [        s1-io-4] c.f.d.s.i.ResourceServiceLocalImpl       : [LOCAL-IMPL] Appel de MockProductController pour créer un produit/adresse.
-2025-09-07T18:53:03.507+01:00  WARN 395806 --- [driver-backend] [or-http-epoll-4] c.f.d.controller.MockProductController   : [MOCK-CONTROLLER] Création d'un produit pour l'organisation 4b869286-feb3-4e80-9dc6-03d34790eadc: Yaounde
 // END OF FILE: restart-dev.sh
 
 //---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/config/CassandraConfig.java
@@ -3389,9 +3335,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
@@ -3401,12 +3344,8 @@ import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import java.security.KeyPair;
-import java.util.Arrays;
-
 import java.security.interfaces.RSAPublicKey;
-
-
-
+import java.util.Arrays;
 
 @Configuration
 @EnableWebFluxSecurity
@@ -3429,16 +3368,20 @@ public class SecurityConfig {
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
             .authorizeExchange(exchanges -> exchanges
                 // --- Routes Publiques (permitAll) ---
+                
+                // POST publics (Login, Register, Onboarding)
                 .pathMatchers(HttpMethod.POST, 
                     "/api/register", 
                     "/api/auth/login", 
                     "/api/onboarding/**"
                 ).permitAll()
                 
+                // GET publics (Recherche, Profils publics, Annonces publiées)
                 .pathMatchers(HttpMethod.GET,
                     "/api/announcements", 
                     "/api/planning/published", 
-                    "/api/planning/user/**", // Ajout de cette ligne
+                    "/api/planning/user/**",
+                    "/api/search/**",           // <--- AJOUTÉ ICI : Autorise la recherche de conducteurs
                     "/api/reviews/user/**", 
                     "/api/profiles/user/**", 
                     "/api/vehicles/user/**", 
@@ -3467,41 +3410,21 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Spécifiez les origines exactes de votre frontend en production
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:19006", "http://localhost:8081", "exp://*", "http://192.168.43.4:8081", "http://192.168.43.204:8081","http://192.168.43.204:19006","http://10.166.235.204:8081","http://10.166.235.204:19006","http://10.2.27.171:8081","http://10.2.27.171:19006","http://192.168.1.112:8081")); // IP à adapter
+        configuration.addAllowedOriginPattern("*"); // Autorise toutes les origines (pour DEV)
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
-        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
   
-
-    //Pour decoder les tokens externes
-    /*@Bean
-    public ReactiveJwtDecoder jwtDecoder() {
-        NimbusReactiveJwtDecoder jwtDecoder = NimbusReactiveJwtDecoder.withJwkSetUri(this.jwkSetUri).build();
-        // Pour le développement, on peut désactiver la validation de la signature si nécessaire,
-        // mais il est préférable de la garder.
-        OAuth2TokenValidator<Jwt> noOpValidator = (token) -> OAuth2TokenValidatorResult.success();
-        jwtDecoder.setJwtValidator(noOpValidator);
-        return jwtDecoder;
-    }
-  */
    @Bean
     public ReactiveJwtDecoder jwtDecoder(KeyPair keyPair) {
         RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
         return NimbusReactiveJwtDecoder.withPublicKey(publicKey).build();
     }
-
-
-
-}
-
-
-// END OF FILE: src/main/java/com/freelance/driver_backend/config/SecurityConfig.java
+}// END OF FILE: src/main/java/com/freelance/driver_backend/config/SecurityConfig.java
 
 //---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/config/SocketIOConfig.java
 
@@ -9279,6 +9202,8 @@ public class MockUserService {
                 })
                 .map(this::convertToUserDto);
     }
+
+    
 
     public Mono<LoginResponse> login(LoginRequest request) {
         return mockUserRepository.findByUsername(request.getUsername())
