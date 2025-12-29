@@ -7,9 +7,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.oauth2.core.OAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
@@ -19,12 +16,8 @@ import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import java.security.KeyPair;
-import java.util.Arrays;
-
 import java.security.interfaces.RSAPublicKey;
-
-
-
+import java.util.Arrays;
 
 @Configuration
 @EnableWebFluxSecurity
@@ -47,16 +40,20 @@ public class SecurityConfig {
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
             .authorizeExchange(exchanges -> exchanges
                 // --- Routes Publiques (permitAll) ---
+                
+                // POST publics (Login, Register, Onboarding)
                 .pathMatchers(HttpMethod.POST, 
                     "/api/register", 
                     "/api/auth/login", 
                     "/api/onboarding/**"
                 ).permitAll()
                 
+                // GET publics (Recherche, Profils publics, Annonces publiées)
                 .pathMatchers(HttpMethod.GET,
                     "/api/announcements", 
                     "/api/planning/published", 
-                    "/api/planning/user/**", // Ajout de cette ligne
+                    "/api/planning/user/**",
+                    "/api/search/**",           // <--- AJOUTÉ ICI : Autorise la recherche de conducteurs
                     "/api/reviews/user/**", 
                     "/api/profiles/user/**", 
                     "/api/vehicles/user/**", 
@@ -85,37 +82,18 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Spécifiez les origines exactes de votre frontend en production
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:19006", "http://localhost:8081", "exp://*", "http://192.168.43.4:8081", "http://192.168.43.204:8081","http://192.168.43.204:19006","http://10.166.235.204:8081","http://10.166.235.204:19006","http://10.2.27.171:8081","http://10.2.27.171:19006","http://192.168.1.112:8081")); // IP à adapter
+        configuration.addAllowedOriginPattern("*"); // Autorise toutes les origines (pour DEV)
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
-        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
   
-
-    //Pour decoder les tokens externes
-    /*@Bean
-    public ReactiveJwtDecoder jwtDecoder() {
-        NimbusReactiveJwtDecoder jwtDecoder = NimbusReactiveJwtDecoder.withJwkSetUri(this.jwkSetUri).build();
-        // Pour le développement, on peut désactiver la validation de la signature si nécessaire,
-        // mais il est préférable de la garder.
-        OAuth2TokenValidator<Jwt> noOpValidator = (token) -> OAuth2TokenValidatorResult.success();
-        jwtDecoder.setJwtValidator(noOpValidator);
-        return jwtDecoder;
-    }
-  */
    @Bean
     public ReactiveJwtDecoder jwtDecoder(KeyPair keyPair) {
         RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
         return NimbusReactiveJwtDecoder.withPublicKey(publicKey).build();
     }
-
-
-
 }
-
-

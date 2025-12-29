@@ -1,0 +1,2412 @@
+Project Context From: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller
+Generated On: lun. 29 déc. 2025 12:26:14 WAT
+===============================================
+Ignored Directory Patterns: .* node_modules vendor build dist target __pycache__ .next cache target storage
+Ignored File Patterns: *.log *.jar *.pdf *.class *.sqlite project_context.txt package-lock.json yarn.lock composer.lock *.ico pnpm-lock.yaml
+===============================================
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/AddressController.java
+
+
+
+// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/AddressController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.CreateProductRequest;
+import com.freelance.driver_backend.dto.UserSessionContextDto; // Nouveau import
+import com.freelance.driver_backend.model.Product;
+import com.freelance.driver_backend.service.ProfileService;
+import com.freelance.driver_backend.service.ResourceService;
+import com.freelance.driver_backend.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.util.Optional;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/addresses")
+@RequiredArgsConstructor
+@Slf4j
+public class AddressController {
+
+    private final ProfileService profileService;
+    private final ResourceService resourceService;
+
+    // Un UUID fixe et unique pour identifier toutes les adresses dans la table "products"
+    private static final UUID ADDRESS_CATEGORY_ID = UUID.fromString("4a6f8b90-1234-5678-9abc-def012345678");
+
+    /**
+     * SECURISE: Récupère toutes les adresses de l'utilisateur actuellement connecté.
+     */
+    @GetMapping
+    public Flux<Product> getUserAddresses(
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMapMany(userContext -> {
+                // Un utilisateur devrait toujours avoir une organisation après l'onboarding initial
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Flux.error(new IllegalStateException("L'utilisateur n'a pas d'organisation valide associée."));
+                }
+                UUID organizationId = userContext.getOrganisation().getOrganizationId();
+                // Utilise le service de ressources pour obtenir les produits par catégorie et par client_id (l'utilisateur connecté)
+                // NOTE: getProductsByCategory ne filtre pas par clientId, il faut le faire après ou modifier le service de ressources
+                return resourceService.getProductsByCategory(organizationId, ADDRESS_CATEGORY_ID, authorizationHeader, null)
+                                      .filter(product -> userContext.getUserId().equals(product.getClientId())); // Filtrer par l'ID de l'utilisateur connecté
+            });
+    }
+
+    /**
+     * PUBLIC: Récupère les adresses d'un utilisateur spécifique par son ID.
+     */
+    @GetMapping("/user/{userId}")
+    public Flux<Product> getAddressesForUser(
+        @PathVariable UUID userId,
+        @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        log.info("▶️ [AddressController] Récupération des adresses publiques pour l'utilisateur ID: {}", userId);
+
+        String token = Optional.ofNullable(authorizationHeader).orElse(null);
+
+        // MODIFIÉ : Récupère l'organisation ID du userId spécifié.
+        // Puis, filtre les produits de cette organisation qui appartiennent à ce userId.
+        return profileService.findOrganisationIdByUserId(userId)
+             .flatMapMany(orgId ->
+                resourceService.getProductsByCategory(orgId, ADDRESS_CATEGORY_ID, token, null)
+                               .filter(product -> userId.equals(product.getClientId())) // Filtrer par l'ID de l'utilisateur demandé
+             )
+             .doOnComplete(() -> log.info("✅ [addressService] Adresses publiques trouvées pour l'utilisateur {}.", userId))
+             .doOnError(error -> log.error("❌ Erreur lors de la récupération des adresses pour {}: {}", userId, error.getMessage()));
+    }
+
+
+    /**
+     * SECURISE: Crée une nouvelle adresse pour l'utilisateur connecté.
+     */
+    @PostMapping
+    public Mono<ResponseEntity<Product>> createAddress(
+            @RequestBody CreateProductRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour créer une adresse (organisation manquante)."));
+                }
+                
+                // On s'assure que la bonne catégorie et l'ID du propriétaire sont définis
+                request.setCategoryId(ADDRESS_CATEGORY_ID);
+                request.setClientId(userContext.getUserId()); // L'ID de l'utilisateur connecté est le propriétaire
+                
+                log.info("▶️ Controller: Création d'une nouvelle adresse '{}' pour l'utilisateur {}", request.getName(), userContext.getUserId());
+                
+                return resourceService.createProduct(
+                    userContext.getOrganisation().getOrganizationId(), 
+                    request, 
+                    authorizationHeader, 
+                    null
+                );
+            })
+            .map(createdProduct -> new ResponseEntity<>(createdProduct, HttpStatus.CREATED));
+    }
+
+    /**
+     * SECURISE: Met à jour une adresse existante.
+     */
+    @PutMapping("/{addressId}")
+    public Mono<ResponseEntity<Product>> updateAddress(
+            @PathVariable UUID addressId,
+            @RequestBody CreateProductRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour mettre à jour une adresse (organisation manquante)."));
+                }
+                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire de l'adresse ?
+                return resourceService.getProductsByCategory(userContext.getOrganisation().getOrganizationId(), ADDRESS_CATEGORY_ID, authorizationHeader, null)
+                        .filter(product -> product.getId().equals(addressId) && userContext.getUserId().equals(product.getClientId()))
+                        .next() // Prend le premier élément ou vide
+                        .switchIfEmpty(Mono.error(new SecurityException("L'utilisateur n'est pas autorisé à modifier cette adresse ou elle n'existe pas.")))
+                        .flatMap(existingAddress -> {
+                            request.setCategoryId(ADDRESS_CATEGORY_ID);
+                            request.setClientId(userContext.getUserId()); // Assure que le propriétaire reste le même
+                            log.info("▶️ Controller: Mise à jour de l'adresse ID: {}", addressId);
+                            
+                            return resourceService.updateProduct(
+                                userContext.getOrganisation().getOrganizationId(), 
+                                addressId,
+                                request, 
+                                authorizationHeader, 
+                                null
+                            );
+                        });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE: Supprime une adresse existante.
+     */
+    @DeleteMapping("/{addressId}")
+    public Mono<ResponseEntity<Void>> deleteAddress(
+            @PathVariable UUID addressId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour supprimer une adresse (organisation manquante)."));
+                }
+                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire de l'adresse ?
+                return resourceService.getProductsByCategory(userContext.getOrganisation().getOrganizationId(), ADDRESS_CATEGORY_ID, authorizationHeader, null)
+                        .filter(product -> product.getId().equals(addressId) && userContext.getUserId().equals(product.getClientId()))
+                        .next() // Prend le premier élément ou vide
+                        .switchIfEmpty(Mono.error(new SecurityException("L'utilisateur n'est pas autorisé à supprimer cette adresse ou elle n'existe pas.")))
+                        .flatMap(existingAddress -> {
+                            log.info("▶️ Controller: Suppression de l'adresse ID: {}", addressId);
+                            return resourceService.deleteProduct(
+                                userContext.getOrganisation().getOrganizationId(), 
+                                addressId,
+                                authorizationHeader, 
+                                null
+                            );
+                        });
+            })
+            .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT)));
+    }
+}// END OF FILE: AddressController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/AnnouncementController.java
+
+
+package com.freelance.driver_backend.controller;
+
+import com.corundumstudio.socketio.SocketIOServer;
+import com.freelance.driver_backend.dto.CreateProductRequest;
+import com.freelance.driver_backend.dto.UserSessionContextDto;
+import com.freelance.driver_backend.model.ClientProfile;
+import com.freelance.driver_backend.model.DriverProfile;
+import com.freelance.driver_backend.model.Product;
+import com.freelance.driver_backend.model.ProductKey;
+import com.freelance.driver_backend.repository.ProductRepository;
+import com.freelance.driver_backend.service.NotificationTriggerService;
+import com.freelance.driver_backend.service.ProfileService;
+import com.freelance.driver_backend.service.ResourceService;
+import com.freelance.driver_backend.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/announcements")
+@RequiredArgsConstructor
+@Slf4j
+public class AnnouncementController {
+
+    private final ResourceService resourceService;
+    private final ProfileService profileService;
+    private final ProductRepository productRepository; 
+    private final NotificationTriggerService notificationTriggerService;
+    private final SocketIOServer socketIOServer; 
+
+    private static final UUID ANNOUNCEMENT_CATEGORY_ID = UUID.fromString("c1a5b4e0-1234-5678-9abc-def012345678");
+
+    /**
+     * PUBLIC: Récupère toutes les annonces publiées par les clients.
+     */
+    @GetMapping
+    public Flux<Product> getPublishedAnnouncements() {
+        log.info("Controller: Requête publique pour récupérer les annonces publiées.");
+        return productRepository.findByCategoryId(ANNOUNCEMENT_CATEGORY_ID)
+                .filter(product -> "Published".equalsIgnoreCase(product.getStatus()))
+                .flatMap(this::enrichProductWithAuthorDetails);
+    }
+
+    /**
+     * SECURISE (CLIENT): Récupère les annonces du client actuellement connecté.
+     */
+    @GetMapping("/my-announcements")
+    public Flux<Product> getMyAnnouncements(
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) { 
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMapMany(userContext -> {
+                if (userContext.getClientProfile() == null) {
+                     return Flux.error(new IllegalStateException("L'utilisateur n'est pas un client."));
+                }
+                return productRepository.findByClientIdAndCategoryId(userContext.getUserId(), ANNOUNCEMENT_CATEGORY_ID);
+            });
+    }
+
+    /**
+     * SECURISE (CLIENT): Crée une nouvelle annonce pour le client connecté.
+     */
+    @PostMapping
+    public Mono<ResponseEntity<Product>> createAnnouncement(
+            @RequestBody CreateProductRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un client peut créer une annonce."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour créer une annonce (organisation manquante)."));
+                }
+                ClientProfile clientProfile = userContext.getClientProfile(); 
+                
+                request.setCategoryId(ANNOUNCEMENT_CATEGORY_ID);
+                request.setClientId(clientProfile.getUserId());
+                request.setClientName(clientProfile.getFirstName() + " " + clientProfile.getLastName());
+                request.setClientPhoneNumber(clientProfile.getPhoneNumber());
+                request.setClientProfileImageUrl(clientProfile.getProfileImageUrl());
+
+                return resourceService.createProduct(userContext.getOrganisation().getOrganizationId(), request, authorizationHeader, null);
+            })
+            .map(createdProduct -> new ResponseEntity<>(createdProduct, HttpStatus.CREATED));
+    }
+
+    /**
+     * SECURISE (CLIENT): Met à jour une annonce appartenant au client connecté.
+     */
+    @PutMapping("/{productId}")
+    public Mono<ResponseEntity<Product>> updateAnnouncement(
+            @PathVariable UUID productId,
+            @RequestBody CreateProductRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les clients peuvent modifier leurs annonces."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour mettre à jour une annonce (organisation manquante)."));
+                }
+                ClientProfile clientProfile = userContext.getClientProfile();
+
+                return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), productId))
+                        .filter(product -> clientProfile.getUserId().equals(product.getClientId()))
+                        .switchIfEmpty(Mono.error(new SecurityException("Le client n'est pas autorisé à modifier cette annonce ou elle n'existe pas.")))
+                        .flatMap(existingAnnouncement -> {
+                            return resourceService.updateProduct(userContext.getOrganisation().getOrganizationId(), productId, request, authorizationHeader, null);
+                        });
+            })
+            .doOnSuccess(updatedAnnouncement -> {
+                if (updatedAnnouncement != null) {
+                    socketIOServer.getBroadcastOperations().sendEvent("updated_announcement", updatedAnnouncement);
+                }
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+    
+    /**
+     * SECURISE (CLIENT): Supprime une annonce appartenant au client connecté.
+     */
+    @DeleteMapping("/{productId}")
+    public Mono<ResponseEntity<Void>> deleteAnnouncement(
+            @PathVariable UUID productId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les clients peuvent supprimer leurs annonces."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour supprimer une annonce (organisation manquante)."));
+                }
+                ClientProfile clientProfile = userContext.getClientProfile();
+
+                return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), productId))
+                        .filter(product -> clientProfile.getUserId().equals(product.getClientId()))
+                        .switchIfEmpty(Mono.error(new SecurityException("Le client n'est pas autorisé à supprimer cette annonce ou elle n'existe pas.")))
+                        .flatMap(existingAnnouncement ->
+                            resourceService.deleteProduct(userContext.getOrganisation().getOrganizationId(), productId, authorizationHeader, null)
+                        );
+            })
+            .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT)));
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Permet à un conducteur de POSTULER à une annonce.
+     * Le statut de l'annonce passe à "PendingConfirmation". Une notification est envoyée au client.
+     */
+    @PostMapping("/{announcementId}/apply")
+    public Mono<ResponseEntity<Product>> applyToAnnouncement(
+            @PathVariable UUID announcementId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(driverContext -> {
+                if (driverContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un chauffeur peut postuler à une annonce."));
+                }
+                DriverProfile driverProfile = driverContext.getDriverProfile();
+                
+                return productRepository.findAll().filter(p -> p.getId().equals(announcementId)).next()
+                    .flatMap(announcement -> {
+                         ProductKey key = new ProductKey(announcement.getOrganizationId(), announcementId);
+                         return productRepository.findById(key)
+                            .flatMap(ann -> {
+                                if (ann.getReservedByDriverId() != null) {
+                                    return Mono.error(new IllegalStateException("Cette annonce a déjà été postulée/réservée."));
+                                }
+                                ann.setReservedByDriverId(driverProfile.getUserId());
+                                ann.setReservedByDriverName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
+                                ann.setStatus("PendingConfirmation");
+                                log.info("Chauffeur {} a postulé pour l'annonce {}. Statut mis à jour à 'PendingConfirmation'.", driverProfile.getUserId(), announcementId);
+                                return productRepository.save(ann);
+                            })
+                            .flatMap(updatedAnnouncement -> {
+                                socketIOServer.getBroadcastOperations().sendEvent("updated_announcement", updatedAnnouncement);
+                                log.info("Déclenchement de la notification pour le client de l'annonce {} (postulation par chauffeur {}).", announcementId, driverProfile.getUserId());
+                                return notificationTriggerService.notifyClientOfAcceptedAnnouncement(updatedAnnouncement, driverProfile)
+                                    .thenReturn(updatedAnnouncement);
+                            });
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Permet à un CONDUCTEUR d'annuler une postulation.
+     * Le statut de l'annonce revient à "Published". Une notification est envoyée au client.
+     */
+    @PostMapping("/{announcementId}/cancel-postulation") // <-- NOUVEL ENDPOINT POUR L'ANNULATION
+    public Mono<ResponseEntity<Product>> cancelPostulation(
+            @PathVariable UUID announcementId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(driverContext -> {
+                if (driverContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un chauffeur peut annuler une postulation."));
+                }
+                DriverProfile driverProfile = driverContext.getDriverProfile();
+
+                return productRepository.findAll().filter(p -> p.getId().equals(announcementId)).next()
+                    .flatMap(announcement -> {
+                        if (!driverProfile.getUserId().equals(announcement.getReservedByDriverId())) {
+                            return Mono.error(new SecurityException("Vous n'avez pas postulé à cette annonce ou n'êtes pas le chauffeur concerné."));
+                        }
+                        if (!"PendingConfirmation".equalsIgnoreCase(announcement.getStatus()) && !"Ongoing".equalsIgnoreCase(announcement.getStatus())) {
+                            return Mono.error(new IllegalStateException("L'annonce n'est pas dans un état permettant l'annulation de postulation (statut actuel: " + announcement.getStatus() + ")."));
+                        }
+
+                        ProductKey key = new ProductKey(announcement.getOrganizationId(), announcementId);
+                        return productRepository.findById(key)
+                            .flatMap(ann -> {
+                                ann.setReservedByDriverId(null);
+                                ann.setReservedByDriverName(null);
+                                ann.setStatus("Published"); // Revenir au statut "Published"
+                                log.info("Chauffeur {} a annulé sa postulation pour l'annonce {}. Statut remis à 'Published'.", driverProfile.getUserId(), announcementId);
+                                return productRepository.save(ann);
+                            })
+                            .flatMap(updatedAnnouncement -> {
+                                socketIOServer.getBroadcastOperations().sendEvent("updated_announcement", updatedAnnouncement);
+                                log.info("Déclenchement de la notification pour le client de l'annonce {} (annulation de postulation par chauffeur {}).", announcementId, driverProfile.getUserId());
+                                return notificationTriggerService.notifyClientOfCancelledPostulation(updatedAnnouncement, driverProfile)
+                                    .thenReturn(updatedAnnouncement);
+                            });
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CLIENT): Permet au CLIENT de confirmer (accepter) un chauffeur qui a postulé à son annonce.
+     * Le statut de l'annonce passe à "Ongoing" et une notification est envoyée au chauffeur.
+     */
+    @PostMapping("/{announcementId}/confirm")
+    public Mono<ResponseEntity<Product>> confirmDriverForAnnouncement(
+            @PathVariable UUID announcementId,
+            @RequestParam UUID driverId, 
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(clientContext -> {
+                if (clientContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un client peut confirmer un chauffeur pour son annonce."));
+                }
+                ClientProfile clientProfile = clientContext.getClientProfile();
+
+                return productRepository.findAll().filter(p -> p.getId().equals(announcementId)).next()
+                    .flatMap(announcement -> {
+                        if (!announcement.getClientId().equals(clientProfile.getUserId())) {
+                            return Mono.error(new SecurityException("Le client n'est pas l'auteur de cette annonce."));
+                        }
+                        if (!"PendingConfirmation".equalsIgnoreCase(announcement.getStatus()) || !announcement.getReservedByDriverId().equals(driverId)) {
+                             return Mono.error(new IllegalStateException("Cette annonce n'est pas en attente de confirmation pour ce chauffeur, ou le statut est incorrect."));
+                        }
+
+                        ProductKey key = new ProductKey(announcement.getOrganizationId(), announcementId);
+                        return productRepository.findById(key)
+                            .flatMap(ann -> {
+                                ann.setStatus("Ongoing");
+                                log.info("Client {} a confirmé le chauffeur {} pour l'annonce {}. Statut mis à jour à 'Ongoing'.", clientProfile.getUserId(), driverId, announcementId);
+                                return productRepository.save(ann);
+                            })
+                            .flatMap(updatedAnnouncement -> 
+                                profileService.findDriverById(driverId)
+                                    .flatMap(driverProfile -> notificationTriggerService.notifyDriverOfConfirmedAnnouncement(updatedAnnouncement, driverProfile))
+                                    .thenReturn(updatedAnnouncement)
+                            );
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Récupère les courses que le conducteur connecté a acceptées.
+     */
+    @GetMapping("/my-rides")
+    public Flux<Product> getMyAcceptedRides(@AuthenticationPrincipal Mono<Jwt> jwtMono,
+                                            @RequestHeader("Authorization") String authorizationHeader) {
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMapMany(userContext -> {
+                 if (userContext.getDriverProfile() == null) {
+                     return Flux.error(new IllegalStateException("L'utilisateur n'est pas un chauffeur."));
+                }
+                UUID driverId = userContext.getUserId();
+                log.info("Récupération des courses acceptées/postulées par le chauffeur {}", driverId);
+                
+                return productRepository.findByReservedByDriverId(driverId)
+                           .flatMap(this::enrichProductWithAuthorDetails)
+                           .doOnNext(product -> {
+                               // Debugging log pour voir les produits enrichis avant de les envoyer
+                               log.info("DEBUG_BACKEND_OFFERS: Produit complet enrichi envoyé pour driver {}: Id='{}', Title='{}', AuthorName='{}', Cost={}, ReservedByDriverName='{}'", 
+                                        driverId, product.getId(), product.getName(), product.getAuthorName(), product.getDefaultSellPrice(), product.getReservedByDriverName());
+                           });
+            });
+    }
+
+
+    /**
+     * Méthode privée pour enrichir une annonce avec les détails de son auteur (client).
+     */
+    private Mono<Product> enrichProductWithAuthorDetails(Product product) {
+        UUID authorId = product.getClientId();
+        if (authorId == null) {
+            return Mono.just(product);
+        }
+
+        return profileService.findClientById(authorId)
+            .map(clientProfile -> {
+                product.setAuthorId(clientProfile.getUserId());
+                product.setAuthorName(clientProfile.getFirstName() + " " + clientProfile.getLastName());
+                product.setAuthorPhoneNumber(clientProfile.getPhoneNumber());
+                product.setAuthorProfileImageUrl(clientProfile.getProfileImageUrl());
+                return product;
+            })
+            .defaultIfEmpty(product); 
+    }
+}// END OF FILE: AnnouncementController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/AuthController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.external.LoginRequest;
+import com.freelance.driver_backend.dto.external.NotificationRequest;
+import com.freelance.driver_backend.dto.external.RegistrationRequest; // Garder cet import
+import com.freelance.driver_backend.dto.onboarding.OnboardingResponse;
+import com.freelance.driver_backend.model.OtpVerification; // Garder cet import
+import com.freelance.driver_backend.repository.OtpVerificationRepository; // Garder cet import
+import com.freelance.driver_backend.service.LoginService;
+import com.freelance.driver_backend.service.external.AuthService; // Garder cet import
+import com.freelance.driver_backend.service.external.NotificationService;
+import io.github.cdimascio.dotenv.Dotenv;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value; // Garder cet import
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api") // Le mapping doit être "/api" pour que /api/register fonctionne
+@RequiredArgsConstructor
+@Slf4j
+public class AuthController {
+
+    private final LoginService loginService;
+    private final OtpVerificationRepository otpVerificationRepository; // Réactiver l'injection
+    private final NotificationService notificationService;
+    private final Dotenv dotenv;
+    private final AuthService authService; // Réactiver l'injection
+
+    @Value("${freelancedriver.oauth2.client-id}")
+    private String oauthClientId;
+    @Value("${freelancedriver.oauth2.client-secret}")
+    private String oauthClientSecret;
+
+
+    @PostMapping("/auth/login") // La route de login reste sous /api/auth/login
+    public Mono<ResponseEntity<OnboardingResponse>> login(@RequestBody LoginRequest loginRequest) {
+        return loginService.loginAndGetContext(loginRequest)
+                .doOnNext(response -> {
+                    log.info("▶️ Backend DEBUG: Réponse Login envoyée au frontend: {}", response);
+                })
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.status(401).build());
+    }
+
+    /**
+     * Gère l'inscription initiale : enregistre l'utilisateur via l'API externe,
+     * puis génère et envoie l'OTP.
+     * Cet endpoint est appelé par `SignUp.tsx`.
+     */
+    /* @PostMapping("/register") // CETTE ROUTE DOIT ÊTRE RÉACTIVÉE
+    public Mono<ResponseEntity<Map<String, String>>> registerUserAndInitiateOtp(@RequestBody RegistrationRequest request) {
+        String email = request.getEmail();
+        String firstName = request.getFirstName();
+        
+        log.info("▶️ Début du processus d'inscription (API externe) et OTP pour l'email: {}", email);
+        
+        // 1. Obtenir le token M2M (Machine-to-Machine)
+        return authService.getClientCredentialsToken(oauthClientId, oauthClientSecret)
+            .flatMap(m2mTokenResponse -> {
+                String m2mBearerToken = "Bearer " + m2mTokenResponse.getAccessToken();
+
+                // 2. Enregistrer l'utilisateur auprès du service d'authentification externe réel
+                return authService.registerUser(request, m2mBearerToken)
+                    .flatMap(userDto -> {
+                        log.info("✅ Utilisateur '{}' enregistré avec succès via l'API externe. ID: {}", userDto.getEmail(), userDto.getId());
+                        
+                        // 3. Générer et sauvegarder l'OTP localement
+                        String otp = String.format("%06d", new Random().nextInt(999999));
+                        OtpVerification newVerification = new OtpVerification();
+                        newVerification.setEmail(email);
+                        newVerification.setOtpCode(otp);
+                        newVerification.setExpiresAt(Instant.now().plus(10, ChronoUnit.MINUTES));
+                        
+                        return otpVerificationRepository.save(newVerification);
+                    })
+                    .flatMap(savedOtp -> {
+                        log.info("✅ OTP {} sauvegardé localement pour {}", savedOtp.getOtpCode(), email);
+
+                        // 4. Envoyer l'email OTP via le service de notification (mock ou réel, selon le profil)
+                        UUID otpTemplateId = UUID.fromString(dotenv.get("TEMPLATE_EMAIL_OTP_ID"));
+                        UUID tempOrgId = UUID.fromString(dotenv.get("SYSTEM_ORGANIZATION_ID"));
+
+                        NotificationRequest otpRequest = NotificationRequest.builder()
+                            .templateId(otpTemplateId)
+                            .recipients(List.of(email))
+                            .metadata(Map.of("firstName", firstName, "otpCode", savedOtp.getOtpCode()))
+                            .build();
+                        
+                        return notificationService.sendEmailNotification(tempOrgId, otpRequest, null, null);
+                    })
+                    .map(success -> {
+                        if (Boolean.TRUE.equals(success)) {
+                            log.info("✅ Email OTP envoyé avec succès à {}", email);
+                            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Utilisateur enregistré, OTP envoyé."));
+                        } else {
+                            log.error("❌ Échec de l'envoi de l'email OTP à {}", email);
+                            return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("message", "Utilisateur enregistré, mais l'email OTP n'a pas pu être envoyé."));
+                        }
+                    })
+                    .onErrorResume(RuntimeException.class, e -> {
+                        log.error("❌ Erreur lors de l'inscription ou de l'envoi de l'OTP pour {}: {}", email, e.getMessage());
+                        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage())));
+                    });
+            });
+    } */
+
+        @PostMapping("/register") // CETTE ROUTE DOIT ÊTRE RÉACTIVÉE
+    public Mono<ResponseEntity<Map<String, String>>> registerUserAndInitiateOtp(@RequestBody RegistrationRequest request) {
+        String email = request.getEmail();
+        String firstName = request.getFirstName();
+        
+        log.info("▶️ Début du processus d'inscription (API externe) et OTP pour l'email: {}", email);
+        
+        // Le token M2M n'est plus requis pour l'enregistrement de l'utilisateur.
+        // L'appel à getClientCredentialsToken est donc supprimé ici.
+        String m2mBearerToken = "Bearer BQC5Zt6s9y$C&F)J@NcRfUjXn2r5u8x/";
+        // 1. Enregistrer l'utilisateur auprès du service d'authentification externe.
+        return authService.registerUser(request,m2mBearerToken)
+            .flatMap(userDto -> {
+                log.info("✅ Utilisateur '{}' enregistré avec succès via l'API externe. ID: {}", userDto.getEmail(), userDto.getId());
+                
+                // 2. Générer et sauvegarder l'OTP localement
+                String otp = String.format("%06d", new Random().nextInt(999999));
+                OtpVerification newVerification = new OtpVerification();
+                newVerification.setEmail(email);
+                newVerification.setOtpCode(otp);
+                
+                newVerification.setExpiresAt(Instant.now().plus(10, ChronoUnit.MINUTES));
+                
+                return otpVerificationRepository.save(newVerification);
+            })
+            .flatMap(savedOtp -> {
+                log.info("✅ OTP {} sauvegardé localement pour {}", savedOtp.getOtpCode(), email);
+
+                // 3. Envoyer l'email OTP via le service de notification
+                UUID otpTemplateId = UUID.fromString(dotenv.get("TEMPLATE_EMAIL_OTP_ID"));
+                UUID tempOrgId = UUID.fromString(dotenv.get("SYSTEM_ORGANIZATION_ID"));
+
+                NotificationRequest otpRequest = NotificationRequest.builder()
+                    .templateId(otpTemplateId)
+                    .recipients(List.of(email))
+                    .metadata(Map.of("firstName", firstName, "otpCode", savedOtp.getOtpCode()))
+                    .build();
+                
+                // Note: L'envoi de notification pourrait nécessiter un token M2M.
+                // Si c'est le cas, l'appel à getClientCredentialsToken devrait être replacé ici.
+                return notificationService.sendEmailNotification(tempOrgId, otpRequest, null, null);
+            })
+            .map(success -> {
+                if (Boolean.TRUE.equals(success)) {
+                    log.info("✅ Email OTP envoyé avec succès à {}", email);
+                    return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", "Utilisateur enregistré, OTP envoyé."));
+                } else {
+                    log.error("❌ Échec de l'envoi de l'email OTP à {}", email);
+                    return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("message", "Utilisateur enregistré, mais l'email OTP n'a pas pu être envoyé."));
+                }
+            })
+            .onErrorResume(RuntimeException.class, e -> {
+                log.error("❌ Erreur lors de l'inscription ou de l'envoi de l'OTP pour {}: {}", email, e.getMessage());
+                return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage())));
+            });
+    }
+}// END OF FILE: AuthController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/DriverSearchController.java
+
+
+
+// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/DriverSearchController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.model.Resource;
+import com.freelance.driver_backend.service.resource.ResourceService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
+
+@RestController
+@RequestMapping("/api/search")
+@RequiredArgsConstructor
+@Slf4j
+public class DriverSearchController {
+
+    private final ResourceService resourceService;
+    private static final String PLANNING_CATEGORY_ID = "ba75b2c0-30a8-11f0-a5b5-bb7d33c83c13";
+
+    @GetMapping("/drivers")
+    public Flux<Resource> findAvailableDrivers() {
+        log.info("-> Requête PUBLIQUE reçue pour GET /api/search/drivers");
+        return resourceService.getResourcesByCategory(PLANNING_CATEGORY_ID)
+                .filter(resource -> "AVAILABLE".equalsIgnoreCase(resource.getState()))
+                .doOnNext(resource -> log.info("--> Planning publié trouvé : {}", resource.getName()));
+    }
+}// END OF FILE: DriverSearchController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/ExperienceController.java
+
+
+// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/ExperienceController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.CreateProductRequest; // Ajouté pour les méthodes POST/PUT
+import com.freelance.driver_backend.dto.UserSessionContextDto; // Nouveau import
+import com.freelance.driver_backend.model.DriverProfile; // Nouveau import
+import com.freelance.driver_backend.model.Product;
+import com.freelance.driver_backend.service.ProfileService;
+import com.freelance.driver_backend.service.ResourceService;
+import com.freelance.driver_backend.util.JwtUtil; // Ajouté pour les méthodes POST/PUT
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus; // Ajouté pour les ResponseEntity
+import org.springframework.http.ResponseEntity; // Ajouté pour les ResponseEntity
+import org.springframework.security.core.annotation.AuthenticationPrincipal; // Ajouté pour les méthodes POST/PUT
+import org.springframework.security.oauth2.jwt.Jwt; // Ajouté pour les méthodes POST/PUT
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.util.Optional;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/experiences")
+@RequiredArgsConstructor
+@Slf4j
+public class ExperienceController {
+
+    private final ProfileService profileService;
+    private final ResourceService resourceService;
+
+    // UUID fixe pour la catégorie "expériences"
+    private static final UUID EXPERIENCE_CATEGORY_ID = UUID.fromString("e1f2a3b4-c5d6-7890-1234-567890abcdef");
+    private static final UUID DRIVER_LICENSE_CATEGORY_ID = UUID.fromString("f1c2b3d4-e5f6-7890-1234-567890abcdef"); // Du frontend
+    private static final UUID CV_CATEGORY_ID = UUID.fromString("a1b2c3d4-e5f6-7890-1234-567890fedcba"); // Du frontend
+
+
+    /**
+     * PUBLIC: Récupère les expériences d'un utilisateur spécifique par son ID.
+     */
+    @GetMapping("/user/{userId}")
+    public Flux<Product> getExperiencesForUser(
+            @PathVariable UUID userId,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        log.info("▶️ [ExperienceController] Récupération des expériences pour l'utilisateur ID: {}", userId);
+
+        String token = Optional.ofNullable(authorizationHeader).orElse(null);
+
+        // MODIFIÉ : Récupère l'organisation ID du userId spécifié.
+        // Puis, filtre les produits de cette organisation qui appartiennent à ce userId.
+        return profileService.findOrganisationIdByUserId(userId)
+                .flatMapMany(orgId -> resourceService.getProductsByCategory(orgId, EXPERIENCE_CATEGORY_ID, token, null)
+                                                    .filter(product -> userId.equals(product.getClientId())));
+    }
+    
+    /**
+     * SECURISE (CONDUCTEUR): Crée une nouvelle expérience/document pour le chauffeur connecté.
+     */
+    @PostMapping
+    public Mono<ResponseEntity<Product>> createExperienceOrDocument(
+            @RequestBody CreateProductRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les chauffeurs peuvent gérer leurs expériences/documents."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+
+                // Assurez-vous que la catégorie est définie dans la requête.
+                if (request.getCategoryId() == null ||
+                    (!request.getCategoryId().equals(EXPERIENCE_CATEGORY_ID) &&
+                     !request.getCategoryId().equals(DRIVER_LICENSE_CATEGORY_ID) &&
+                     !request.getCategoryId().equals(CV_CATEGORY_ID))) {
+                    return Mono.error(new IllegalArgumentException("Catégorie d'expérience/document invalide ou manquante."));
+                }
+
+                request.setClientId(driverProfile.getUserId()); // L'ID du chauffeur est le propriétaire
+                request.setClientName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
+                request.setClientPhoneNumber(driverProfile.getPhoneNumber());
+                request.setClientProfileImageUrl(driverProfile.getProfileImageUrl());
+                
+                log.info("▶️ Controller: Création d'une expérience/document (catégorie: {}) pour le chauffeur {}", request.getCategoryId(), driverProfile.getUserId());
+                
+                return resourceService.createProduct(
+                    userContext.getOrganisation().getOrganizationId(), 
+                    request, 
+                    authorizationHeader, 
+                    null
+                );
+            })
+            .map(createdProduct -> new ResponseEntity<>(createdProduct, HttpStatus.CREATED));
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Met à jour une expérience/document existant.
+     */
+    @PutMapping("/{productId}")
+    public Mono<ResponseEntity<Product>> updateExperienceOrDocument(
+            @PathVariable UUID productId,
+            @RequestBody CreateProductRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les chauffeurs peuvent modifier leurs expériences/documents."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+
+                 // Assurez-vous que la catégorie est définie dans la requête.
+                if (request.getCategoryId() == null ||
+                    (!request.getCategoryId().equals(EXPERIENCE_CATEGORY_ID) &&
+                     !request.getCategoryId().equals(DRIVER_LICENSE_CATEGORY_ID) &&
+                     !request.getCategoryId().equals(CV_CATEGORY_ID))) {
+                    return Mono.error(new IllegalArgumentException("Catégorie d'expérience/document invalide ou manquante."));
+                }
+                
+                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire ?
+                return resourceService.getProductsByCategory(userContext.getOrganisation().getOrganizationId(), request.getCategoryId(), authorizationHeader, null)
+                        .filter(product -> product.getId().equals(productId) && driverProfile.getUserId().equals(product.getClientId()))
+                        .next()
+                        .switchIfEmpty(Mono.error(new SecurityException("Le chauffeur n'est pas autorisé à modifier cet élément ou il n'existe pas.")))
+                        .flatMap(existingProduct -> {
+                            request.setClientId(driverProfile.getUserId()); // Assure que le propriétaire reste le même
+                            request.setClientName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
+                            request.setClientPhoneNumber(driverProfile.getPhoneNumber());
+                            request.setClientProfileImageUrl(driverProfile.getProfileImageUrl());
+
+                            log.info("▶️ Controller: Mise à jour de l'expérience/document ID: {}", productId);
+                            
+                            return resourceService.updateProduct(
+                                userContext.getOrganisation().getOrganizationId(), 
+                                productId,
+                                request, 
+                                authorizationHeader, 
+                                null
+                            );
+                        });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Supprime une expérience/document existant.
+     */
+    @DeleteMapping("/{productId}")
+    public Mono<ResponseEntity<Void>> deleteExperienceOrDocument(
+            @PathVariable UUID productId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les chauffeurs peuvent supprimer leurs expériences/documents."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+
+                // On ne peut pas facilement récupérer la catégorie ici sans re-fetch.
+                // Une meilleure approche serait d'inclure la categoryId dans le path ou comme query param pour DELETE.
+                // Pour l'instant, on fait un fetch large puis filtre. C'est moins performant.
+                return resourceService.getProductsByCategory(userContext.getOrganisation().getOrganizationId(), EXPERIENCE_CATEGORY_ID, authorizationHeader, null)
+                        .filter(product -> product.getId().equals(productId) && driverProfile.getUserId().equals(product.getClientId()))
+                        .next()
+                        .switchIfEmpty(Mono.error(new SecurityException("Le chauffeur n'est pas autorisé à supprimer cet élément ou il n'existe pas.")))
+                        .flatMap(existingProduct -> {
+                            log.info("▶️ Controller: Suppression de l'expérience/document ID: {}", productId);
+                            return resourceService.deleteProduct(
+                                userContext.getOrganisation().getOrganizationId(), 
+                                productId,
+                                authorizationHeader, 
+                                null
+                            );
+                        });
+            })
+            .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT)));
+    }
+}// END OF FILE: ExperienceController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/MediaController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.external.UploadMediaResponse;
+import com.freelance.driver_backend.service.StorageService;
+import com.freelance.driver_backend.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+// Retirer cet import car publicKey n'est plus directement utilisé ici
+// import org.springframework.beans.factory.annotation.Value; 
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+
+import java.util.Map;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/media")
+@RequiredArgsConstructor
+@Slf4j
+public class MediaController {
+
+    private final StorageService storageService;
+
+    // Retirer ceci si ce n'est plus utilisé nulle part dans le contrôleur
+    // @Value("${freelancedriver.api.public-key}")
+    // private String publicKey;
+
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Mono<ResponseEntity<Map<String, String>>> uploadFile(
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader, // Nous avons toujours besoin de cet en-tête pour le contrôleur lui-même pour vérifier l'utilisateur.
+            @RequestPart("file") Mono<FilePart> filePartMono,
+            @RequestParam("type") String frontendType,
+            @RequestParam("resourceId") String resourceId) {
+
+        return Mono.zip(jwtMono, filePartMono)
+            .flatMap(tuple -> {
+                Jwt jwt = tuple.getT1();
+                FilePart filePart = tuple.getT2();
+                UUID userId = JwtUtil.getUserIdFromToken(jwt);
+                UUID targetResourceId = UUID.fromString(resourceId);
+
+                log.info("▶️ Téléversement d'un fichier de type logique '{}' pour la ressource '{}' par l'utilisateur '{}'", frontendType, resourceId, userId);
+
+                // Le StorageService s'occupera d'obtenir son propre token M2M
+                return storageService.saveFile(
+                    "product",
+                    frontendType,
+                    userId,
+                    targetResourceId,
+                    filePart.filename(),
+                    filePart
+                )
+                .map(uploadResponse -> {
+                    log.info("✅ Fichier téléversé avec succès. URL: {}, URI: {}", uploadResponse.getUrl(), uploadResponse.getUri());
+                    return ResponseEntity.ok(Map.of("url", uploadResponse.getUrl(), "uri", uploadResponse.getUri()));
+                });
+            });
+    }
+}// END OF FILE: MediaController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/MockProductController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.CreateProductRequest;
+import com.freelance.driver_backend.model.Product;
+import com.freelance.driver_backend.model.ProductKey;
+import com.freelance.driver_backend.repository.ProductRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/mock-products/{organizationId}")
+@RequiredArgsConstructor
+@Slf4j
+
+public class MockProductController {
+
+    private final ProductRepository productRepository;
+
+    /**
+     * Crée un nouveau "produit" (annonce, véhicule, adresse, etc.).
+     */
+    @PostMapping
+    public Mono<ResponseEntity<Product>> createProduct(
+            @PathVariable UUID organizationId,
+            @RequestBody CreateProductRequest request) {
+
+        log.warn("[MOCK-CONTROLLER] Création d'un produit pour l'organisation {}. Request reçue: {}", organizationId,
+                request);
+        // AJOUT : Inclure l'ID de la requête dans les logs pour le diagnostic
+        log.warn("[MOCK-CONTROLLER] Request details: clientId={}, categoryId={}, name={}, requestedId={}",
+                request.getClientId(), request.getCategoryId(), request.getName(), request.getId());
+
+        Product newProduct = new Product();
+        ProductKey key;
+
+        // --- CORRECTION : Utiliser l'ID fourni par le frontend si présent ---
+        if (request.getId() != null && !request.getId().isEmpty()) {
+            try {
+                // Tenter de convertir l'ID fourni en UUID
+                key = new ProductKey(organizationId, UUID.fromString(request.getId()));
+                log.warn("[MOCK-CONTROLLER] Création de produit avec ID fourni par le frontend: {}", request.getId());
+            } catch (IllegalArgumentException e) {
+                // Si l'ID fourni n'est pas un UUID valide, rejeter la requête
+                log.error("[MOCK-CONTROLLER] ID de produit fourni invalide par le frontend: {}", request.getId(), e);
+                return Mono.error(new IllegalArgumentException("L'ID de produit fourni par le frontend est invalide."));
+            }
+        } else {
+            // Si aucun ID n'est fourni, générer un nouvel UUID
+            key = new ProductKey(organizationId, UUID.randomUUID());
+            log.warn("[MOCK-CONTROLLER] Création de produit avec ID généré (aucun fourni): {}", key.getId());
+        }
+        newProduct.setKey(key);
+
+        // On utilise la méthode centralisée pour remplir l'objet
+        updateProductFromRequest(newProduct, request);
+
+        log.warn(
+                "[MOCK-CONTROLLER] Objet Product construit avant sauvegarde: ID={}, OrgID={}, ClientID={}, CatID={}, Nom='{}'",
+                newProduct.getId(), newProduct.getOrganizationId(), newProduct.getClientId(),
+                newProduct.getCategoryId(), newProduct.getName());
+
+        return productRepository.save(newProduct)
+                .map(savedProduct -> {
+                    log.warn(
+                            "[MOCK-CONTROLLER] Produit sauvegardé avec succès. ID: {}, OrgID: {}, ClientID: {}, CatID: {}, Nom: '{}', Statut: '{}'",
+                            savedProduct.getId(), savedProduct.getOrganizationId(), savedProduct.getClientId(),
+                            savedProduct.getCategoryId(), savedProduct.getName(), savedProduct.getStatus());
+                    return new ResponseEntity<>(savedProduct, HttpStatus.CREATED);
+                });
+    }
+
+    /**
+     * Récupère les "produits" d'une organisation, filtrés par catégorie.
+     */
+    @GetMapping
+    public Flux<Product> getProductsByCategory(
+            @PathVariable UUID organizationId,
+            @RequestParam UUID categoryId) {
+        log.warn("[MOCK-CONTROLLER] Récupération des produits pour org {} et catégorie {}", organizationId, categoryId);
+        return productRepository.findByKeyOrganizationIdAndCategoryId(organizationId, categoryId);
+    }
+
+    /**
+     * Met à jour un "produit" existant.
+     */
+    @PutMapping("/{productId}")
+    public Mono<ResponseEntity<Product>> updateProduct(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID productId,
+            @RequestBody CreateProductRequest request) {
+
+        ProductKey key = new ProductKey(organizationId, productId);
+        log.warn("[MOCK-CONTROLLER] Mise à jour du produit avec la clé {}. Données reçues : {}", key, request);
+
+        return productRepository.findById(key)
+                .flatMap(existingProduct -> {
+                    log.info("Produit existant trouvé : {}", existingProduct);
+                    updateProductFromRequest(existingProduct, request);
+                    log.info("Produit après mise à jour (avant sauvegarde) : {}", existingProduct);
+                    return productRepository.save(existingProduct);
+                })
+                .map(savedProduct -> {
+                    log.info("Produit sauvegardé avec succès : {}", savedProduct);
+                    return ResponseEntity.ok(savedProduct);
+                })
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Supprime un "produit".
+     */
+    @DeleteMapping("/{productId}")
+    public Mono<ResponseEntity<Void>> deleteProduct(
+            @PathVariable UUID organizationId,
+            @PathVariable UUID productId) {
+
+        ProductKey key = new ProductKey(organizationId, productId);
+        log.warn("[MOCK-CONTROLLER] Suppression du produit avec la clé {}", key);
+
+        return productRepository.deleteById(key)
+                .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT)));
+    }
+
+    /**
+     * Méthode utilitaire privée pour mapper les champs d'une CreateProductRequest
+     * vers un objet Product. Centralise la logique pour éviter la répétition
+     * entre les méthodes createProduct et updateProduct.
+     */
+    private void updateProductFromRequest(Product product, CreateProductRequest request) {
+        product.setName(request.getName());
+        product.setDefaultSellPrice(request.getDefaultSellPrice());
+        product.setShortDescription(request.getShortDescription());
+
+        if (request.getCategoryId() != null) {
+            product.setCategoryId(request.getCategoryId());
+        }
+
+        product.setIsActive(request.getIsActive());
+        product.setPickupLocation(request.getPickupLocation());
+        product.setDropoffLocation(request.getDropoffLocation());
+        product.setStartDate(request.getStartDate());
+        product.setStartTime(request.getStartTime());
+        product.setEndDate(request.getEndDate());
+        product.setEndTime(request.getEndTime());
+        product.setIsNegotiable(request.isNegotiable());
+        product.setPaymentMethod(request.getPaymentMethod());
+        product.setClientId(request.getClientId());
+        product.setClientName(request.getClientName());
+        product.setStatus(request.getStatus());
+        product.setClientPhoneNumber(request.getClientPhoneNumber());
+        product.setClientProfileImageUrl(request.getClientProfileImageUrl());
+        product.setBaggageInfo(request.getBaggageInfo());
+        product.setMetadata(request.getMetadata());
+        // L'ID ne peut pas être mis à jour directement ici car il fait partie de la clé
+        // primaire.
+        // Il est géré par la logique `key = new ProductKey(...)` plus haut.
+    }
+}// END OF FILE: MockProductController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/MockUserController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.external.*;
+import com.freelance.driver_backend.service.MockUserService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+
+@RestController
+@RequestMapping("/api/mock_user")
+@RequiredArgsConstructor
+@CrossOrigin(origins = "*")
+public class MockUserController {
+
+    private final MockUserService mockUserService;
+
+    @PostMapping("/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Mono<UserDto> register(@RequestBody  RegistrationRequest request) {
+        return mockUserService.register(request);
+    }
+
+    @PostMapping("/login")
+    public Mono<LoginResponse> login(@RequestBody LoginRequest request) {
+        return mockUserService.login(request);
+    }
+}// END OF FILE: MockUserController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/NotificationConfigController.java
+
+// Dans src/main/java/com/freelance/driver_backend/controller/NotificationConfigController.java
+
+package com.freelance.driver_backend.controller;
+
+import java.util.UUID;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.freelance.driver_backend.dto.external.NotificationRequest;
+import com.freelance.driver_backend.model.DesignTemplate;
+import com.freelance.driver_backend.model.EmailTemplate;
+import com.freelance.driver_backend.model.FirebaseSetting;
+import com.freelance.driver_backend.model.PushTemplate;
+import com.freelance.driver_backend.model.SmtpSetting;
+import com.freelance.driver_backend.repository.DesignTemplateRepository;
+import com.freelance.driver_backend.repository.EmailTemplateRepository;
+import com.freelance.driver_backend.repository.FirebaseSettingRepository;
+import com.freelance.driver_backend.repository.PushTemplateRepository;
+import com.freelance.driver_backend.repository.SmtpSettingRepository;
+import com.freelance.driver_backend.service.external.NotificationService;
+
+import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Mono;
+
+@RestController
+@RequestMapping("/api/mock-notifications/{organizationId}")
+@RequiredArgsConstructor
+public class NotificationConfigController {
+
+    private final SmtpSettingRepository smtpSettingRepository;
+    private final DesignTemplateRepository designTemplateRepository;
+    private final EmailTemplateRepository emailTemplateRepository;
+    private final NotificationService notificationService;
+    private final FirebaseSettingRepository firebaseSettingRepository;
+    private final PushTemplateRepository pushTemplateRepository;
+
+    @PostMapping("/smtp-settings")
+    public Mono<SmtpSetting> createSmtpSetting(@PathVariable UUID organizationId, @RequestBody SmtpSetting setting) {
+        // Utilise l'ID fourni par le client, ou génère-en un si aucun n'est fourni
+        if (setting.getId() == null) {
+            setting.setId(UUID.randomUUID());
+        }
+        setting.setOrganizationId(organizationId);
+        return smtpSettingRepository.save(setting);
+    }
+
+    @PostMapping("/design-templates")
+    public Mono<DesignTemplate> createDesignTemplate(@PathVariable UUID organizationId, @RequestBody DesignTemplate template) {
+        // Utilise l'ID fourni par le client, ou génère-en un si aucun n'est fourni
+        if (template.getId() == null) {
+            template.setId(UUID.randomUUID());
+        }
+        template.setOrganizationId(organizationId);
+        return designTemplateRepository.save(template);
+    }
+
+    @PostMapping("/email-templates")
+    public Mono<EmailTemplate> createEmailTemplate(@PathVariable UUID organizationId, @RequestBody EmailTemplate template) {
+        // Utilise l'ID fourni par le client, ou génère-en un si aucun n'est fourni
+        if (template.getId() == null) {
+            template.setId(UUID.randomUUID());
+        }
+        template.setOrganizationId(organizationId);
+        return emailTemplateRepository.save(template);
+    }
+
+     @PostMapping("/send-test-email")
+    public Mono<ResponseEntity<String>> sendTestEmail(
+            @PathVariable UUID organizationId,
+            @RequestBody NotificationRequest request) {
+        
+        // Nous n'avons pas besoin du token ou de la clé publique ici car c'est un test local
+        // qui appelle notre service "mock".
+        return notificationService.sendEmailNotification(organizationId, request, "mock-token", "mock-key")
+            .map(success -> {
+                if (Boolean.TRUE.equals(success)) {
+                    return ResponseEntity.ok("Test email sent successfully!");
+                } else {
+                    return ResponseEntity.status(500).body("Failed to send test email.");
+                }
+            })
+            .onErrorResume(e -> Mono.just(ResponseEntity.status(500).body("Error: " + e.getMessage())));
+    }
+
+
+    @PostMapping("/firebase-settings")
+    public Mono<FirebaseSetting> createFirebaseSetting(@PathVariable UUID organizationId, @RequestBody FirebaseSetting setting) {
+        // Utilise l'ID fourni par le client, ou génère-en un si aucun n'est fourni
+        if (setting.getId() == null) {
+            setting.setId(UUID.randomUUID());
+        }
+        setting.setOrganizationId(organizationId);
+        return firebaseSettingRepository.save(setting);
+    }
+
+    @PostMapping("/push-templates")
+    public Mono<PushTemplate> createPushTemplate(@PathVariable UUID organizationId, @RequestBody PushTemplate template) {
+        // Utilise l'ID fourni par le client, ou génère-en un si aucun n'est fourni
+        if (template.getId() == null) {
+            template.setId(UUID.randomUUID());
+        }
+        template.setOrganizationId(organizationId);
+        return pushTemplateRepository.save(template);
+    }
+    
+}// END OF FILE: NotificationConfigController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/NotificationController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.model.DeviceToken;
+import com.freelance.driver_backend.repository.DeviceTokenRepository;
+import com.freelance.driver_backend.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/notifications")
+@RequiredArgsConstructor
+@Slf4j
+public class NotificationController {
+
+    private final DeviceTokenRepository deviceTokenRepository;
+
+    @PostMapping("/register-device")
+    public Mono<ResponseEntity<Void>> registerDevice(
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestBody Map<String, String> payload) {
+        
+        String token = payload.get("token");
+        if (token == null || token.isBlank()) {
+            return Mono.just(ResponseEntity.badRequest().build());
+        }
+
+        return jwtMono.flatMap(jwt -> {
+            DeviceToken deviceToken = new DeviceToken();
+            deviceToken.setUserId(JwtUtil.getUserIdFromToken(jwt));
+            deviceToken.setToken(token);
+            
+            log.info("Enregistrement du token de l'appareil pour l'utilisateur {}", deviceToken.getUserId());
+            
+            return deviceTokenRepository.save(deviceToken)
+                .thenReturn(new ResponseEntity<Void>(HttpStatus.CREATED));
+        });
+    }
+}// END OF FILE: NotificationController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/OnboardingController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.onboarding.ClientOnboardingRequest;
+import com.freelance.driver_backend.dto.onboarding.DriverOnboardingRequest;
+
+import com.freelance.driver_backend.service.OnboardingService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
+import com.freelance.driver_backend.dto.onboarding.OnboardingResponse;
+
+@RestController
+@RequestMapping("/api/onboarding")
+@Slf4j
+public class OnboardingController {
+
+    private final OnboardingService onboardingService;
+
+    public OnboardingController(OnboardingService onboardingService) {
+        this.onboardingService = onboardingService;
+    }
+
+    @PostMapping("/driver")
+    public Mono<ResponseEntity<OnboardingResponse>> onboardDriver(@RequestBody DriverOnboardingRequest request) {
+        return onboardingService.createDriverAccount(request)
+                .doOnNext(response -> { // AJOUT DU LOG ICI
+                    log.info("▶️ Backend DEBUG: Réponse Onboarding (DRIVER) envoyée au frontend: {}", response);
+                })
+                .map(response -> new ResponseEntity<>(response, HttpStatus.CREATED));
+    }
+
+    @PostMapping("/client")
+    public Mono<ResponseEntity<OnboardingResponse>> onboardClient(@RequestBody ClientOnboardingRequest request) {
+        return onboardingService.createClientAccount(request)
+                .doOnNext(response -> { // AJOUT DU LOG ICI
+                    log.info("▶️ Backend DEBUG: Réponse Onboarding (CLIENT) envoyée au frontend: {}", response);
+                })
+                .map(response -> new ResponseEntity<>(response, HttpStatus.CREATED));
+    }
+}// END OF FILE: OnboardingController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/PlanningController.java
+
+
+package com.freelance.driver_backend.controller;
+
+import com.corundumstudio.socketio.SocketIOServer;
+import com.freelance.driver_backend.dto.CreateProductRequest;
+import com.freelance.driver_backend.dto.UserSessionContextDto;
+import com.freelance.driver_backend.model.ClientProfile;
+import com.freelance.driver_backend.model.DriverProfile;
+import com.freelance.driver_backend.model.Product;
+import com.freelance.driver_backend.model.ProductKey;
+import com.freelance.driver_backend.repository.ProductRepository;
+import com.freelance.driver_backend.service.NotificationTriggerService;
+import com.freelance.driver_backend.service.ProfileService;
+import com.freelance.driver_backend.service.ResourceService;
+import com.freelance.driver_backend.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/planning")
+@RequiredArgsConstructor
+@Slf4j
+public class PlanningController {
+
+    private final ResourceService resourceService;
+    private final ProfileService profileService;
+    private final ProductRepository productRepository;
+    private final NotificationTriggerService notificationTriggerService;
+    private final SocketIOServer socketIOServer;
+
+    private static final UUID PLANNING_CATEGORY_ID = UUID.fromString("ba75b2c0-30a8-11f0-a5b5-bb7d33c83c13");
+
+    /**
+     * PUBLIC: Récupère tous les plannings publiés par les chauffeurs.
+     */
+    @GetMapping("/published")
+    public Flux<Product> getPublishedPlannings() {
+        log.info("Controller: Requête publique pour récupérer les plannings publiés.");
+        return productRepository.findByCategoryId(PLANNING_CATEGORY_ID)
+                .filter(product -> "Published".equalsIgnoreCase(product.getStatus())) // Seuls les plannings "Published"
+                .flatMap(this::enrichProductWithAuthorDetails);
+    }
+
+    /**
+     * PUBLIC: Récupère les plannings publiés d'un chauffeur spécifique.
+     */
+    @GetMapping("/user/{userId}")
+    public Flux<Product> getPlanningsForUser(@PathVariable UUID userId) {
+        log.info("Récupération des plannings publiés pour le chauffeur ID: {}", userId);
+        return productRepository.findByClientIdAndCategoryId(userId, PLANNING_CATEGORY_ID)
+                .filter(product -> "Published".equalsIgnoreCase(product.getStatus()))
+                .flatMap(this::enrichProductWithAuthorDetails);
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Récupère les plannings du conducteur actuellement connecté.
+     * Inclut aussi ceux en attente de confirmation ou confirmés.
+     */
+    @GetMapping
+    public Flux<Product> getAllPlanningsForCurrentUser(@AuthenticationPrincipal Mono<Jwt> jwtMono,
+                                                        @RequestHeader("Authorization") String authorizationHeader) {
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMapMany(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                     return Flux.error(new IllegalStateException("L'utilisateur n'est pas un chauffeur."));
+                }
+                // Récupère tous les plannings où ce chauffeur est le client_id (auteur)
+                return productRepository.findByClientIdAndCategoryId(userContext.getUserId(), PLANNING_CATEGORY_ID);
+            });
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Crée un nouveau planning pour le conducteur connecté.
+     */
+    @PostMapping
+    public Mono<ResponseEntity<Product>> createPlanning(
+            @RequestBody CreateProductRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono, 
+            @RequestHeader("Authorization") String authorizationHeader) {
+        
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un chauffeur peut créer un planning."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour créer un planning (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+                
+                request.setCategoryId(PLANNING_CATEGORY_ID);
+                request.setClientId(driverProfile.getUserId());
+                request.setClientName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
+                request.setClientPhoneNumber(driverProfile.getPhoneNumber());
+                request.setClientProfileImageUrl(driverProfile.getProfileImageUrl());
+                
+                // Le statut par défaut d'un nouveau planning est "Published"
+                request.setStatus("Published");
+
+                log.info("▶️ [PlanningController.createPlanning] Création d'un planning par le chauffeur ID: {} pour l'organisation ID: {}",
+                         driverProfile.getUserId(), userContext.getOrganisation().getOrganizationId());
+                log.info("▶️ [PlanningController.createPlanning] Request payload avant envoi au resourceService: {}", request);
+
+                return resourceService.createProduct(userContext.getOrganisation().getOrganizationId(), request, authorizationHeader, null);
+            })
+            .map(createdProduct -> {
+                log.info("✅ [PlanningController.createPlanning] Planning créé avec succès. ID: {}", createdProduct.getId());
+                return new ResponseEntity<>(createdProduct, HttpStatus.CREATED);
+            });
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Met à jour un planning appartenant au conducteur connecté.
+     */
+    @PutMapping("/{planningId}")
+    public Mono<ResponseEntity<Product>> updatePlanning(
+            @PathVariable UUID planningId,
+            @RequestBody CreateProductRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                 if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les chauffeurs peuvent modifier leurs plannings."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour mettre à jour un planning (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+
+                return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), planningId))
+                        .filter(product -> driverProfile.getUserId().equals(product.getClientId()))
+                        .switchIfEmpty(Mono.error(new SecurityException("Le chauffeur n'est pas autorisé à modifier ce planning ou il n'existe pas.")))
+                        .flatMap(existingPlanning ->
+                            resourceService.updateProduct(userContext.getOrganisation().getOrganizationId(), planningId, request, authorizationHeader, null)
+                        );
+            })
+            .doOnSuccess(updatedPlanning -> {
+                if (updatedPlanning != null) {
+                    socketIOServer.getBroadcastOperations().sendEvent("updated_planning", updatedPlanning);
+                }
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Supprime un planning appartenant au conducteur connecté.
+     */
+    @DeleteMapping("/{planningId}")
+    public Mono<ResponseEntity<Void>> deletePlanning(
+            @PathVariable UUID planningId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les chauffeurs peuvent supprimer leurs plannings."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour supprimer un planning (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+
+                return productRepository.findById(new ProductKey(userContext.getOrganisation().getOrganizationId(), planningId))
+                        .filter(product -> driverProfile.getUserId().equals(product.getClientId()))
+                        .switchIfEmpty(Mono.error(new SecurityException("Le chauffeur n'est pas autorisé à supprimer ce planning ou il n'existe pas.")))
+                        .flatMap(existingPlanning ->
+                            resourceService.deleteProduct(userContext.getOrganisation().getOrganizationId(), planningId, authorizationHeader, null)
+                        );
+            })
+            .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT)));
+    }
+    
+    /**
+     * SECURISE (CLIENT): Permet à un client de DEMANDER à réserver un planning.
+     * Le statut de l'annonce passe à "PendingDriverConfirmation". Une notification est envoyée au chauffeur.
+     * (Anciennement /accept)
+     */
+    @PostMapping("/{planningId}/request-booking")
+    public Mono<ResponseEntity<Product>> requestPlanningBooking( // RENOMMÉ
+            @PathVariable UUID planningId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(clientContext -> {
+                if (clientContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un client peut demander la réservation d'un planning."));
+                }
+                if (clientContext.getOrganisation() == null || clientContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour demander la réservation d'un planning (organisation manquante)."));
+                }
+                ClientProfile clientProfile = clientContext.getClientProfile();
+                
+                return productRepository.findById(new ProductKey(clientContext.getOrganisation().getOrganizationId(), planningId))
+                    .flatMap(planning -> {
+                        if (planning.getReservedByDriverId() != null) {
+                            return Mono.error(new IllegalStateException("Ce planning a déjà une demande de réservation ou est déjà réservé."));
+                        }
+                        
+                        // Met l'ID du client demandeur dans reservedByDriverId (qui représente ici le client ayant fait la demande)
+                        planning.setReservedByDriverId(clientProfile.getUserId());
+                        planning.setReservedByDriverName(clientProfile.getFirstName() + " " + clientProfile.getLastName());
+                        planning.setStatus("PendingDriverConfirmation"); // NOUVEAU STATUT
+                        log.info("Client {} demande la réservation du planning {}. Statut mis à jour à 'PendingDriverConfirmation'.", clientProfile.getUserId(), planningId);
+                        
+                        return productRepository.save(planning);
+                    })
+                    .flatMap(updatedPlanning -> 
+                        profileService.findDriverById(updatedPlanning.getClientId()) // Le client_id du planning est l'ID du chauffeur
+                            .flatMap(driverProfile -> notificationTriggerService.notifyDriverOfPlanningBookingRequest(updatedPlanning, clientProfile))
+                            .thenReturn(updatedPlanning)
+                    )
+                    .doOnSuccess(updatedPlanning -> {
+                        socketIOServer.getBroadcastOperations().sendEvent("updated_planning", updatedPlanning);
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Permet au CHAUFFEUR de confirmer (accepter) une demande de réservation d'un client.
+     * Le statut du planning passe à "Ongoing". Une notification est envoyée au client.
+     */
+    @PostMapping("/{planningId}/confirm-booking") // NOUVEL ENDPOINT
+    public Mono<ResponseEntity<Product>> confirmPlanningBooking(
+            @PathVariable UUID planningId,
+            @RequestParam UUID clientId, // Le client à confirmer
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(driverContext -> {
+                if (driverContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un chauffeur peut confirmer la réservation d'un planning."));
+                }
+                if (driverContext.getOrganisation() == null || driverContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour confirmer une réservation de planning (organisation manquante)."));
+                }
+                DriverProfile driverProfile = driverContext.getDriverProfile();
+
+                return productRepository.findById(new ProductKey(driverContext.getOrganisation().getOrganizationId(), planningId))
+                    .flatMap(planning -> {
+                        // Vérifier que le chauffeur connecté est bien l'auteur du planning
+                        if (!planning.getClientId().equals(driverContext.getUserId())) {
+                            return Mono.error(new SecurityException("Vous n'êtes pas l'auteur de ce planning."));
+                        }
+                        // Vérifier que le statut est bien "PendingDriverConfirmation" et que le client à confirmer est celui qui a fait la demande
+                        if (!"PendingDriverConfirmation".equalsIgnoreCase(planning.getStatus()) || !planning.getReservedByDriverId().equals(clientId)) {
+                             return Mono.error(new IllegalStateException("Ce planning n'est pas en attente de confirmation pour ce client, ou le statut est incorrect."));
+                        }
+
+                        planning.setStatus("Ongoing"); // Statut final
+                        log.info("Chauffeur {} a confirmé la réservation du client {} pour le planning {}. Statut mis à jour à 'Ongoing'.", driverProfile.getUserId(), clientId, planningId);
+                        
+                        return productRepository.save(planning);
+                    })
+                    .flatMap(updatedPlanning -> 
+                        profileService.findClientById(clientId) // Retrouver le profil du client pour la notification
+                            .flatMap(clientProfile -> notificationTriggerService.notifyClientOfPlanningBookingAccepted(updatedPlanning, driverProfile))
+                            .thenReturn(updatedPlanning)
+                    )
+                    .doOnSuccess(updatedPlanning -> {
+                        socketIOServer.getBroadcastOperations().sendEvent("updated_planning", updatedPlanning);
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CLIENT): Permet à un client d'ANNULER sa demande de réservation ou une réservation en cours.
+     * Le statut du planning revient à "Published". Une notification est envoyée au chauffeur.
+     */
+    @PostMapping("/{planningId}/cancel-reservation") // NOUVEL ENDPOINT
+    public Mono<ResponseEntity<Product>> cancelPlanningReservation(
+            @PathVariable UUID planningId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(clientContext -> {
+                if (clientContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seul un client peut annuler une réservation de planning."));
+                }
+                if (clientContext.getOrganisation() == null || clientContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour annuler une réservation de planning (organisation manquante)."));
+                }
+                ClientProfile clientProfile = clientContext.getClientProfile();
+
+                return productRepository.findById(new ProductKey(clientContext.getOrganisation().getOrganizationId(), planningId))
+                    .flatMap(planning -> {
+                        // Vérifier que le client connecté est bien celui qui a demandé ou réservé
+                        if (!clientProfile.getUserId().equals(planning.getReservedByDriverId())) {
+                            return Mono.error(new SecurityException("Vous n'avez pas demandé ou réservé ce planning."));
+                        }
+                        // Autoriser l'annulation si le statut est "PendingDriverConfirmation" ou "Ongoing"
+                        if (!"PendingDriverConfirmation".equalsIgnoreCase(planning.getStatus()) && !"Ongoing".equalsIgnoreCase(planning.getStatus())) {
+                            return Mono.error(new IllegalStateException("Le planning n'est pas dans un état permettant l'annulation de réservation (statut actuel: " + planning.getStatus() + ")."));
+                        }
+
+                        planning.setReservedByDriverId(null);
+                        planning.setReservedByDriverName(null);
+                        planning.setStatus("Published"); // Revenir au statut "Published"
+                        log.info("Client {} a annulé sa demande/réservation pour le planning {}. Statut remis à 'Published'.", clientProfile.getUserId(), planningId);
+                        
+                        return productRepository.save(planning);
+                    })
+                    .flatMap(updatedPlanning -> 
+                        profileService.findDriverById(updatedPlanning.getClientId()) // L'auteur du planning est le chauffeur
+                            .flatMap(driverProfile -> notificationTriggerService.notifyDriverOfCancelledPlanningReservation(updatedPlanning, clientProfile))
+                            .thenReturn(updatedPlanning)
+                    )
+                    .doOnSuccess(updatedPlanning -> {
+                        socketIOServer.getBroadcastOperations().sendEvent("updated_planning", updatedPlanning);
+                    });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CLIENT): Récupère les plannings que le client connecté a réservés ou demandés.
+     */
+    @GetMapping("/my-reservations")
+    public Flux<Product> getMyReservedRides(@AuthenticationPrincipal Mono<Jwt> jwtMono,
+                                            @RequestHeader("Authorization") String authorizationHeader) {
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMapMany(userContext -> {
+                 if (userContext.getClientProfile() == null) {
+                     return Flux.error(new IllegalStateException("L'utilisateur n'est pas un client."));
+                }
+                log.info("Récupération des courses réservées/demandées par le client {}", userContext.getUserId());
+                // Filtrer les plannings où ce client est le "reservedByDriverId"
+                return productRepository.findByReservedByDriverId(userContext.getUserId())
+                            .flatMap(this::enrichProductWithAuthorDetails); // Enrichir avec les détails du chauffeur (auteur du planning)
+            });
+    }
+
+    /**
+     * Méthode privée pour enrichir un produit avec les détails de son auteur (chauffeur).
+     */
+    private Mono<Product> enrichProductWithAuthorDetails(Product product) {
+        UUID authorId = product.getClientId();
+        if (authorId == null) {
+            return Mono.just(product);
+        }
+
+        return profileService.findDriverById(authorId)
+            .map(driverProfile -> {
+                product.setAuthorId(driverProfile.getUserId());
+                product.setAuthorName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
+                product.setAuthorPhoneNumber(driverProfile.getPhoneNumber());
+                product.setAuthorProfileImageUrl(driverProfile.getProfileImageUrl());
+                return product;
+            })
+            .defaultIfEmpty(product);
+    }
+}// END OF FILE: PlanningController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/ProfileController.java
+
+
+
+// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/ProfileController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.UserSessionContextDto;
+import com.freelance.driver_backend.model.ClientProfile;
+import com.freelance.driver_backend.model.DriverProfile;
+import com.freelance.driver_backend.service.ProfileService;
+import com.freelance.driver_backend.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+
+import java.util.Map;
+import java.util.UUID;
+
+@Slf4j
+@RestController
+@RequestMapping("/api/profiles")
+@RequiredArgsConstructor
+public class ProfileController {
+
+    private final ProfileService profileService;
+
+    /**
+     * SECURISE: Récupère le profil complet de l'utilisateur actuellement connecté.
+     * Retourne la nouvelle structure UserSessionContextDto.
+     */
+    @GetMapping("/me")
+    public Mono<ResponseEntity<UserSessionContextDto>> getMyProfile(
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        return jwtMono
+                .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt),
+                        authorizationHeader, null))
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE: Met à jour le profil du conducteur actuellement connecté.
+     * Vérifie que l'utilisateur a bien un profil chauffeur.
+     * // --- MODIFICATION ICI : Le type de retour du Mono ---
+     * 
+     * @return Le UserSessionContextDto complet et mis à jour.
+     */
+    @PutMapping("/driver/me")
+    public Mono<ResponseEntity<UserSessionContextDto>> updateDriverProfile( // <-- CHANGEMENT DU TYPE DE RETOUR
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestBody DriverProfile updatedProfileData,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        return jwtMono
+                .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt),
+                        authorizationHeader, null))
+                .flatMap(userContext -> {
+                    if (userContext.getDriverProfile() == null) {
+                        return Mono.error(new IllegalStateException(
+                                "L'utilisateur n'est pas un chauffeur. Impossible de mettre à jour le profil chauffeur."));
+                    }
+                    UUID userId = userContext.getUserId();
+                    return profileService.updateDriverProfile(userId, updatedProfileData); // <--
+                                                                                           // profileService.updateDriverProfile
+                                                                                           // retourne
+                                                                                           // UserSessionContextDto
+                })
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE: Met à jour le profil du client actuellement connecté.
+     * Vérifie que l'utilisateur a bien un profil client.
+     * // --- MODIFICATION ICI : Le type de retour du Mono ---
+     * 
+     * @return Le UserSessionContextDto complet et mis à jour.
+     */
+    @PutMapping("/client/me")
+    public Mono<ResponseEntity<UserSessionContextDto>> updateClientProfile( // <-- CHANGEMENT DU TYPE DE RETOUR
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestBody ClientProfile updatedProfileData,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+                .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt),
+                        authorizationHeader, null))
+                .flatMap(userContext -> {
+                    if (userContext.getClientProfile() == null) {
+                        return Mono.error(new IllegalStateException(
+                                "L'utilisateur n'est pas un client. Impossible de mettre à jour le profil client."));
+                    }
+                    UUID userId = userContext.getUserId();
+                    return profileService.updateClientProfile(userId, updatedProfileData); // <--
+                                                                                           // profileService.updateClientProfile
+                                                                                           // retourne
+                                                                                           // UserSessionContextDto
+                })
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * PUBLIC: Récupère le profil public d'un utilisateur par son ID.
+     * Retourne la nouvelle structure UserSessionContextDto.
+     */
+    @GetMapping("/user/{userId}")
+    public Mono<ResponseEntity<UserSessionContextDto>> getPublicUserProfile(
+            @PathVariable UUID userId,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        log.info("▶️ [ProfileController] Récupération du profil public pour l'ID: {}", userId);
+        return profileService.getUserSessionContext(userId, authorizationHeader, null)
+                .map(ResponseEntity::ok)
+                .doOnSuccess(response -> log.info("✅ [ProfileController] Profil public de {} récupéré.", userId))
+                .doOnError(error -> log.error("❌ Erreur lors de la récupération du profil public pour {}: {}", userId,
+                        error.getMessage()))
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE: Met à jour l'URL de l'avatar pour l'utilisateur connecté.
+     * Cette route déclenche la mise à jour de TOUS les profils associés
+     * (Driver/Client)
+     * et la suppression de l'ancien avatar du stockage.
+     * 
+     * @param jwtMono             Le token JWT de l'utilisateur authentifié.
+     * @param requestPayload      Un Map contenant "profileImageUrl".
+     * @param authorizationHeader L'en-tête Authorization.
+     * @return Le UserSessionContextDto complet et mis à jour.
+     */
+    @PutMapping("/me/avatar")
+    public Mono<ResponseEntity<UserSessionContextDto>> updateMyAvatar(
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestBody Map<String, String> requestPayload,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        String newAvatarUrl = requestPayload.get("profileImageUrl");
+        if (newAvatarUrl == null || newAvatarUrl.isEmpty()) {
+            log.error("Requête de mise à jour de l'avatar avec une URL nulle ou vide.");
+            return Mono.just(ResponseEntity.badRequest().body(null));
+        }
+
+        return jwtMono
+                .flatMap(jwt -> {
+                    UUID userId = JwtUtil.getUserIdFromToken(jwt);
+                    log.info("Requête de mise à jour de l'avatar pour l'utilisateur ID: {} avec la nouvelle URL: {}",
+                            userId, newAvatarUrl);
+                    return profileService.updateAvatarUrl(userId, newAvatarUrl);
+                })
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.notFound().build())
+                .doOnError(e -> log.error("❌ Erreur lors de la mise à jour de l'avatar de l'utilisateur: {}",
+                        e.getMessage(), e));
+    }
+}// END OF FILE: ProfileController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/ProfileRoleController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.onboarding.ClientOnboardingRequest;
+import com.freelance.driver_backend.dto.onboarding.DriverOnboardingRequest;
+import com.freelance.driver_backend.dto.UserSessionContextDto; // Importez la nouvelle structure
+import com.freelance.driver_backend.model.ClientProfile;
+import com.freelance.driver_backend.model.DriverProfile;
+import com.freelance.driver_backend.service.OnboardingService; // Réutiliser le service Onboarding
+import com.freelance.driver_backend.service.ProfileService;
+import com.freelance.driver_backend.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+
+import java.util.UUID;
+
+
+@RestController
+@RequestMapping("/api/profiles/roles")
+@RequiredArgsConstructor
+@Slf4j
+public class ProfileRoleController {
+
+    private final ProfileService profileService;
+    private final OnboardingService onboardingService;
+
+    
+    @PostMapping("/become-driver")
+    public Mono<ResponseEntity<UserSessionContextDto>> becomeDriver(
+            @RequestBody DriverOnboardingRequest request, // Réutilise le DTO d'onboarding
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> {
+                UUID userId = JwtUtil.getUserIdFromToken(jwt);
+                // Vérifier d'abord si le profil chauffeur existe déjà pour cet utilisateur
+                return profileService.findDriverById(userId)
+                    .flatMap(existingDriver -> {
+                        log.warn("L'utilisateur {} a déjà un DriverProfile. Impossible d'en créer un autre.", userId);
+                        return Mono.error(new IllegalStateException("Vous êtes déjà enregistré en tant que chauffeur."));
+                    })
+                    .switchIfEmpty(
+                        // Si aucun profil chauffeur n'existe, procéder à sa création
+                        onboardingService.createDriverProfileForExistingUser(userId, request, authorizationHeader)
+                    )
+                    .flatMap(driverProfile -> // driverProfile est le DriverProfile nouvellement créé
+                         // Puis, récupérer le contexte complet mis à jour pour l'utilisateur
+                         profileService.getUserSessionContext(userId, authorizationHeader, null)
+                    )
+                    .map(context -> new ResponseEntity<>(context, HttpStatus.CREATED));
+            });
+    }
+
+    
+    @PostMapping("/become-client")
+    public Mono<ResponseEntity<UserSessionContextDto>> becomeClient(
+            @RequestBody ClientOnboardingRequest request, // Réutilise le DTO d'onboarding
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> {
+                UUID userId = JwtUtil.getUserIdFromToken(jwt);
+                // Vérifier d'abord si le profil client existe déjà pour cet utilisateur
+                return profileService.findClientById(userId)
+                    .flatMap(existingClient -> {
+                        log.warn("L'utilisateur {} a déjà un ClientProfile. Impossible d'en créer un autre.", userId);
+                        return Mono.error(new IllegalStateException("Vous êtes déjà enregistré en tant que client."));
+                    })
+                    .switchIfEmpty(
+                        // Si aucun profil client n'existe, procéder à sa création
+                        onboardingService.createClientProfileForExistingUser(userId, request, authorizationHeader)
+                    )
+                    .flatMap(clientProfile -> // clientProfile est le ClientProfile nouvellement créé
+                         // Puis, récupérer le contexte complet mis à jour pour l'utilisateur
+                         profileService.getUserSessionContext(userId, authorizationHeader, null)
+                    )
+                    .map(context -> new ResponseEntity<>(context, HttpStatus.CREATED));
+            });
+    }
+}
+
+
+// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/ProfileController.java
+
+// END OF FILE: ProfileRoleController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/ReviewController.java
+
+
+
+// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/ReviewController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.RateCriteriaRequest;
+import com.freelance.driver_backend.dto.CreateReviewRequest;
+import com.freelance.driver_backend.dto.UserSessionContextDto; // Importez la nouvelle structure
+import com.freelance.driver_backend.model.ClientProfile; // Importez ClientProfile
+import com.freelance.driver_backend.model.DriverProfile; // Importez DriverProfile
+import com.freelance.driver_backend.model.Review;
+import com.freelance.driver_backend.repository.ReviewRepository;
+import com.freelance.driver_backend.service.ProfileService;
+import com.freelance.driver_backend.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.time.Instant;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/reviews")
+@RequiredArgsConstructor
+@Slf4j
+public class ReviewController {
+
+    private final ReviewRepository reviewRepository;
+    private final ProfileService profileService;
+
+    @PostMapping("/criteria")
+    public Mono<ResponseEntity<Void>> rateByCriteria(@RequestBody RateCriteriaRequest request) {
+        // Logique pour traiter la notation par critères
+        log.info("Received criteria rating for entity {}: {}", request.getEntityId(), request.getRatings());
+        // Ici, vous ajouteriez la logique pour sauvegarder ces évaluations.
+        // Pour l'instant, nous retournons simplement un succès.
+        return Mono.just(ResponseEntity.ok().build());
+    }
+
+    @PostMapping
+    public Mono<ResponseEntity<Review>> createReview(
+            @RequestBody CreateReviewRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) { // Ajout pour getUserSessionContext
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                // L'auteur d'un avis peut être un client ou un chauffeur
+                // On vérifie qu'il a au moins un profil
+                if (userContext.getDriverProfile() == null && userContext.getClientProfile() == null) {
+                    return Mono.error(new IllegalStateException("L'utilisateur n'a pas de profil actif pour laisser un avis."));
+                }
+                
+                Review review = new Review();
+                review.setId(UUID.randomUUID());
+                review.setTargetUserId(request.getTargetUserId());
+                review.setScore(request.getScore());
+                review.setComment(request.getComment());
+                review.setAuthorId(userContext.getUserId());
+                
+                // Détermine les infos de l'auteur en fonction du premier profil trouvé
+                if (userContext.getDriverProfile() != null) {
+                    review.setAuthorFirstName(userContext.getDriverProfile().getFirstName());
+                    review.setAuthorLastName(userContext.getDriverProfile().getLastName());
+                    review.setAuthorProfileImageUrl(userContext.getDriverProfile().getProfileImageUrl());
+                } else if (userContext.getClientProfile() != null) {
+                    review.setAuthorFirstName(userContext.getClientProfile().getFirstName());
+                    review.setAuthorLastName(userContext.getClientProfile().getLastName());
+                    review.setAuthorProfileImageUrl(userContext.getClientProfile().getProfileImageUrl());
+                } else {
+                    // Fallback si vraiment aucun profil n'est trouvé (ne devrait pas arriver avec la vérification ci-dessus)
+                    review.setAuthorFirstName("Utilisateur");
+                    review.setAuthorLastName("Anonyme");
+                }
+                
+                review.setCreatedAt(Instant.now().toEpochMilli());
+                
+                return reviewRepository.save(review);
+            })
+            .map(ResponseEntity::ok);
+    }
+
+    @GetMapping("/user/{userId}")
+    public Flux<Review> getReviewsForUser(@PathVariable UUID userId,
+                                          @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
+        log.info("Récupération des avis pour l'utilisateur ID: {}", userId);
+        return reviewRepository.findByTargetUserId(userId)
+                .flatMap(review -> enrichReviewWithAuthorDetails(review, authorizationHeader)); // Passer l'header
+    }
+
+    // MODIFIÉ : Prend l'Authorization header pour pouvoir appeler getUserSessionContext
+    private Mono<Review> enrichReviewWithAuthorDetails(Review review, String authorizationHeader) {
+        return profileService.getUserSessionContext(review.getAuthorId(), authorizationHeader, null) // Utilise getUserSessionContext
+            .flatMap(authorContext -> {
+                if (authorContext.getDriverProfile() != null) {
+                    review.setAuthorFirstName(authorContext.getDriverProfile().getFirstName());
+                    review.setAuthorLastName(authorContext.getDriverProfile().getLastName());
+                    review.setAuthorProfileImageUrl(authorContext.getDriverProfile().getProfileImageUrl());
+                } else if (authorContext.getClientProfile() != null) {
+                    review.setAuthorFirstName(authorContext.getClientProfile().getFirstName());
+                    review.setAuthorLastName(authorContext.getClientProfile().getLastName());
+                    review.setAuthorProfileImageUrl(authorContext.getClientProfile().getProfileImageUrl());
+                }
+                return Mono.just(review);
+            })
+            .defaultIfEmpty(review); // En cas d'erreur ou d'absence de profil, on renvoie l'avis sans les détails enrichis
+    }
+}// END OF FILE: ReviewController.java
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/src/main/java/com/freelance/driver_backend/controller/VehicleController.java
+
+
+// PATH: /home/mbogneng-junior/freelance-driver (Copie)/backend/src/main/java/com/freelance/driver_backend/controller/VehicleController.java
+
+package com.freelance.driver_backend.controller;
+
+import com.freelance.driver_backend.dto.CreateProductRequest; // Ajouté pour les méthodes POST/PUT
+import com.freelance.driver_backend.dto.UserSessionContextDto; // Nouveau import
+import com.freelance.driver_backend.model.DriverProfile; // Nouveau import
+import com.freelance.driver_backend.model.Product;
+import com.freelance.driver_backend.service.ProfileService;
+import com.freelance.driver_backend.service.ResourceService;
+import com.freelance.driver_backend.util.JwtUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus; // Ajouté pour les ResponseEntity
+import org.springframework.http.ResponseEntity; // Ajouté pour les ResponseEntity
+import org.springframework.security.core.annotation.AuthenticationPrincipal; // Ajouté pour les méthodes POST/PUT
+import org.springframework.security.oauth2.jwt.Jwt; // Ajouté pour les méthodes POST/PUT
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+import java.util.Optional;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/vehicles")
+@RequiredArgsConstructor
+@Slf4j
+public class VehicleController {
+
+    private final ProfileService profileService;
+    private final ResourceService resourceService;
+
+    private static final UUID VEHICLE_CATEGORY_ID = UUID.fromString("e2a7f23e-a3a3-4b0c-852a-227a1c1d6a7e");
+
+    /**
+     * SECURISE: Récupère tous les véhicules du chauffeur actuellement connecté.
+     */
+    @GetMapping
+    public Flux<Product> getMyVehicles(
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMapMany(userContext -> {
+                // Seuls les chauffeurs peuvent avoir des véhicules
+                if (userContext.getDriverProfile() == null) {
+                    return Flux.error(new IllegalStateException("Seuls les chauffeurs peuvent gérer leurs véhicules."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Flux.error(new IllegalStateException("L'utilisateur n'a pas d'organisation valide associée."));
+                }
+                UUID organizationId = userContext.getOrganisation().getOrganizationId();
+                // Filtre les produits par categoryId ET clientId (chauffeur connecté)
+                return resourceService.getProductsByCategory(organizationId, VEHICLE_CATEGORY_ID, authorizationHeader, null)
+                                      .filter(product -> userContext.getUserId().equals(product.getClientId()));
+            });
+    }
+
+    /**
+     * PUBLIC: Récupère les véhicules d'un utilisateur spécifique par son ID.
+     * Cette route devrait idéalement être utilisée pour afficher les véhicules d'un CHAUFFEUR public.
+     */
+    @GetMapping("/user/{userId}")
+    public Flux<Product> getVehiclesForUser(
+            @PathVariable UUID userId,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
+    ) {
+        log.info("▶️ [VehicleController] Récupération des véhicules pour l'utilisateur ID: {}", userId);
+
+        String token = Optional.ofNullable(authorizationHeader).orElse(null);
+
+        // MODIFIÉ : Récupère l'organisation ID du userId spécifié.
+        // Puis, filtre les produits de cette organisation qui appartiennent à ce userId.
+        return profileService.findOrganisationIdByUserId(userId)
+                .flatMapMany(orgId -> resourceService.getProductsByCategory(orgId, VEHICLE_CATEGORY_ID, token, null)
+                                                    .filter(product -> userId.equals(product.getClientId())));
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Crée un nouveau véhicule pour le chauffeur connecté.
+     */
+    @PostMapping
+    public Mono<ResponseEntity<Product>> createVehicle(
+            @RequestBody CreateProductRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les chauffeurs peuvent créer des véhicules."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour créer un véhicule (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+
+                request.setCategoryId(VEHICLE_CATEGORY_ID);
+                request.setClientId(driverProfile.getUserId()); // Le chauffeur connecté est le propriétaire du véhicule
+                // Les autres champs comme clientName, clientPhoneNumber, clientProfileImageUrl peuvent être définis ici
+                // pour enrichir le produit si nécessaire, mais le service de ressources pourrait déjà le faire.
+                request.setClientName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
+                request.setClientPhoneNumber(driverProfile.getPhoneNumber());
+                request.setClientProfileImageUrl(driverProfile.getProfileImageUrl());
+                
+                log.info("▶️ Controller: Création d'un nouveau véhicule '{}' pour le chauffeur {}", request.getName(), driverProfile.getUserId());
+                
+                return resourceService.createProduct(
+                    userContext.getOrganisation().getOrganizationId(), 
+                    request, 
+                    authorizationHeader, 
+                    null
+                );
+            })
+            .map(createdProduct -> new ResponseEntity<>(createdProduct, HttpStatus.CREATED));
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Met à jour un véhicule existant.
+     */
+    @PutMapping("/{vehicleId}")
+    public Mono<ResponseEntity<Product>> updateVehicle(
+            @PathVariable UUID vehicleId,
+            @RequestBody CreateProductRequest request,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+        
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les chauffeurs peuvent modifier leurs véhicules."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour mettre à jour un véhicule (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+
+                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire du véhicule ?
+                return resourceService.getProductsByCategory(userContext.getOrganisation().getOrganizationId(), VEHICLE_CATEGORY_ID, authorizationHeader, null)
+                        .filter(product -> product.getId().equals(vehicleId) && driverProfile.getUserId().equals(product.getClientId()))
+                        .next() // Prend le premier élément ou vide
+                        .switchIfEmpty(Mono.error(new SecurityException("Le chauffeur n'est pas autorisé à modifier ce véhicule ou il n'existe pas.")))
+                        .flatMap(existingVehicle -> {
+                            request.setCategoryId(VEHICLE_CATEGORY_ID);
+                            request.setClientId(driverProfile.getUserId()); // Assure que le propriétaire reste le même
+                            request.setClientName(driverProfile.getFirstName() + " " + driverProfile.getLastName());
+                            request.setClientPhoneNumber(driverProfile.getPhoneNumber());
+                            request.setClientProfileImageUrl(driverProfile.getProfileImageUrl());
+
+                            log.info("▶️ Controller: Mise à jour du véhicule ID: {}", vehicleId);
+                            
+                            return resourceService.updateProduct(
+                                userContext.getOrganisation().getOrganizationId(), 
+                                vehicleId,
+                                request, 
+                                authorizationHeader, 
+                                null
+                            );
+                        });
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * SECURISE (CONDUCTEUR): Supprime un véhicule existant.
+     */
+    @DeleteMapping("/{vehicleId}")
+    public Mono<ResponseEntity<Void>> deleteVehicle(
+            @PathVariable UUID vehicleId,
+            @AuthenticationPrincipal Mono<Jwt> jwtMono,
+            @RequestHeader("Authorization") String authorizationHeader) {
+
+        return jwtMono
+            .flatMap(jwt -> profileService.getUserSessionContext(JwtUtil.getUserIdFromToken(jwt), authorizationHeader, null))
+            .flatMap(userContext -> {
+                if (userContext.getDriverProfile() == null) {
+                    return Mono.error(new IllegalStateException("Seuls les chauffeurs peuvent supprimer leurs véhicules."));
+                }
+                if (userContext.getOrganisation() == null || userContext.getOrganisation().getOrganizationId() == null) {
+                    return Mono.error(new IllegalStateException("Contexte utilisateur invalide pour supprimer un véhicule (organisation manquante)."));
+                }
+                DriverProfile driverProfile = userContext.getDriverProfile();
+
+                // Vérification cruciale : l'utilisateur connecté est-il le propriétaire du véhicule ?
+                return resourceService.getProductsByCategory(userContext.getOrganisation().getOrganizationId(), VEHICLE_CATEGORY_ID, authorizationHeader, null)
+                        .filter(product -> product.getId().equals(vehicleId) && driverProfile.getUserId().equals(product.getClientId()))
+                        .next() // Prend le premier élément ou vide
+                        .switchIfEmpty(Mono.error(new SecurityException("Le chauffeur n'est pas autorisé à supprimer ce véhicule ou il n'existe pas.")))
+                        .flatMap(existingVehicle -> {
+                            log.info("▶️ Controller: Suppression du véhicule ID: {}", vehicleId);
+                            return resourceService.deleteProduct(
+                                userContext.getOrganisation().getOrganizationId(), 
+                                vehicleId,
+                                authorizationHeader, 
+                                null
+                            );
+                        });
+            })
+            .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT)));
+    }
+}// END OF FILE: VehicleController.java
+
