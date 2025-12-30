@@ -97,7 +97,7 @@ public class ApplicationInitializer implements CommandLineRunner {
         smtpSetting.setEncryption("TLS");
         smtpSetting.setUsername(mailUsername);
         smtpSetting.setPassword(mailPassword);
-        smtpSetting.setSenderEmail("no-reply@freelancedriver.com");
+        smtpSetting.setSenderEmail("mbognengj@gmail.com");
         smtpSetting.setSenderName("Freelance Driver App");
 
         smtpSettingRepository.save(smtpSetting)

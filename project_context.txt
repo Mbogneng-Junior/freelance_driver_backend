@@ -1,5 +1,5 @@
 Project Context From: /home/mbogneng-junior/freelance-driver_Sylladb/backend
-Generated On: lun. 29 déc. 2025 20:12:25 WAT
+Generated On: mar. 30 déc. 2025 11:10:45 WAT
 ===============================================
 Ignored Directory Patterns: .* node_modules vendor build dist target __pycache__ .next cache target storage
 Ignored File Patterns: *.log *.jar *.pdf *.class *.sqlite project_context.txt package-lock.json yarn.lock composer.lock *.ico pnpm-lock.yaml
@@ -1660,34 +1660,41 @@ licenses_ directory.
 
 //---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/docker-compose.yml
 
-# Ce fichier ne gère QUE la base de données.
+version: '3.8' # AJOUTÉ : Bonne pratique et nécessaire pour la gestion des ressources
+
 services:
   scylla-db:
     image: scylladb/scylla:latest
-    container_name: scylla-node-dev
-    # Expose le port 9042 du conteneur sur le port 9042 de votre machine (localhost)
+    container_name: scylla-node-prod # MODIFIÉ : Nom plus approprié pour le déploiement
     ports:
       - "9042:9042"
-    command: --smp 1 --memory 1G --developer-mode 1
+    
+    # AJOUTÉ : Section cruciale pour garantir l'allocation de mémoire par Docker
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 1G
+          
+    # MODIFIÉ : On retire "--memory 1G" car Docker gère maintenant la mémoire
+    command: --smp 1 --developer-mode 1 
+    
     volumes:
       - scylla_data:/var/lib/scylla
-  minio:
-    image: minio/minio:latest
-    container_name: minio-dev
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-    environment:
-      MINIO_ROOT_USER: junioradmin 
-      MINIO_ROOT_PASSWORD: YourStrongPassword2025
-      # ==============================================================================
-    command: server /data --console-address ":9001"
+    networks: # AJOUTÉ : Pour la communication entre conteneurs
+      - freelance-net
+
+  # AJOUTÉ : Le service MinIO pour avoir une configuration complète
+ 
 
 volumes:
   scylla_data:
-  minio_data:// END OF FILE: docker-compose.yml
+
+# AJOUTÉ : Définition du réseau partagé
+networks:
+  freelance-net:
+    driver: bridge// END OF FILE: docker-compose.yml
 
 //---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/docker/docker-compose-stack.yml
 
@@ -1784,6 +1791,52 @@ EXPOSE 8080 8081
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -DSPRING_PROFILES_ACTIVE=$SPRING_PROFILES_ACTIVE -jar $SERVICE_NAME.jar"]
 // END OF FILE: docker/Dockerfile
+
+//---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/Dockerfile
+
+# --- Stage 1: Build a lightweight production JAR ---
+FROM maven:3.9-eclipse-temurin-21 AS builder
+WORKDIR /app
+
+# Copy only necessary maven wrapper files first for better caching
+COPY .mvn .mvn
+COPY mvnw pom.xml ./
+
+# Download dependencies. This layer is cached as long as pom.xml doesn't change.
+RUN ./mvnw dependency:go-offline
+
+# Copy the rest of the source code
+COPY src ./src
+
+# Build the application JAR
+RUN ./mvnw clean package -DskipTests
+
+
+# --- Stage 2: Create a minimal and secure final image ---
+FROM eclipse-temurin:21-jre-alpine
+
+# Set arguments for user and group
+ARG APP_GROUP=yowyob
+ARG APP_USER=yowyob
+
+WORKDIR /app
+
+# Create a non-root user for security
+RUN addgroup -S $APP_GROUP && adduser -S $APP_USER -G $APP_GROUP
+
+# Copy the built JAR from the builder stage with the correct owner
+COPY --from=builder --chown=$APP_USER:$APP_GROUP /app/target/*.jar app.jar
+
+# Switch to the non-root user
+USER $APP_USER:$APP_GROUP
+
+
+# Expose ports for the application API and WebSocket server
+EXPOSE 8080 9092
+
+# Entrypoint to run the application
+# Using exec form is a best practice for signal handling
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]// END OF FILE: Dockerfile
 
 //---> PATH: /home/mbogneng-junior/freelance-driver_Sylladb/backend/.env
 
@@ -3356,17 +3409,22 @@ public class SecurityConfig {
 
     // ==============================================================================
     //                       CHAÎNE DE FILTRES DE SÉCURITÉ UNIQUE
-    // Une seule chaîne de filtres pour gérer toutes les routes de l'API.
     // ==============================================================================
     
     @Bean
     @Order(0) // Priorité la plus haute
     public SecurityWebFilterChain apiFilterChain(ServerHttpSecurity http) throws Exception {
         http
+            // ===== CORRECTION 1 : Intégrer la configuration CORS dans la chaîne de sécurité =====
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            
             // Appliquer cette configuration à toutes les routes sous /api/
             .securityMatcher(new PathPatternParserServerWebExchangeMatcher("/api/**"))
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
             .authorizeExchange(exchanges -> exchanges
+                // ===== CORRECTION 2 : Autoriser explicitement les requêtes de pré-vérification (preflight) OPTIONS =====
+                .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                
                 // --- Routes Publiques (permitAll) ---
                 
                 // POST publics (Login, Register, Onboarding)
@@ -3381,7 +3439,7 @@ public class SecurityConfig {
                     "/api/announcements", 
                     "/api/planning/published", 
                     "/api/planning/user/**",
-                    "/api/search/**",           // <--- AJOUTÉ ICI : Autorise la recherche de conducteurs
+                    "/api/search/**",           
                     "/api/reviews/user/**", 
                     "/api/profiles/user/**", 
                     "/api/vehicles/user/**", 
@@ -3410,10 +3468,17 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOriginPattern("*"); // Autorise toutes les origines (pour DEV)
+        
+        // IMPORTANT : Pour la production, vous devriez remplacer "*" par l'URL de votre frontend
+        // Par exemple : configuration.setAllowedOrigins(Arrays.asList("https://mon-app.com"));
+        configuration.addAllowedOriginPattern("*"); 
+        
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true);
+        
+        // Laisser à 'false' si vous ne gérez pas de cookies/sessions cross-domain
+        // configuration.setAllowCredentials(true); 
+        
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

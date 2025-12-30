@@ -74,7 +74,7 @@ log_success "Organisation 'Système' insérée/mise à jour dans la base de donn
 log_step 3 "Configuration des templates de notification via l'API..."
 
 # 3.1 Création du Setting SMTP
-SMTP_PAYLOAD="{ \"id\": \"$SMTP_SETTING_ID\", \"host\": \"smtp.gmail.com\", \"port\": 587, \"encryption\": \"TLS\", \"username\": \"mbognengj@gmail.com\", \"password\": \"VOTRE_MOT_DE_PASSE_APPLICATION_GMAIL\", \"sender_email\": \"no-reply@freelancedriver.com\", \"sender_name\": \"Freelance Driver App\" }"
+SMTP_PAYLOAD="{ \"id\": \"$SMTP_SETTING_ID\", \"host\": \"smtp.gmail.com\", \"port\": 587, \"encryption\": \"TLS\", \"username\": \"mbognengj@gmail.com\", \"password\": \"VOTRE_MOT_DE_PASSE_APPLICATION_GMAIL\", \"sender_email\": \"mbognengj@gmail.com\", \"sender_name\": \"Freelance Driver App\" }"
 echo "  Requête POST vers /smtp-settings"
 SMTP_RESPONSE=$(curl -s -X POST "${API_BASE_URL}/api/mock-notifications/${SYS_ORG_ID}/smtp-settings" -H "Content-Type: application/json" -d "$SMTP_PAYLOAD")
 log_response "$SMTP_RESPONSE"
