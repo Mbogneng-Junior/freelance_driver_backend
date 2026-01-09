@@ -104,3 +104,44 @@ echo "☕ Étape 5/5: Nettoyage du projet Maven et lancement de l'application Sp
 ./mvnw spring-boot:run
 
 
+
+ssh root@167.71.176.127
+Reconstruisez l'image Docker :
+code Bash
+
+    
+docker build -t freelance-driver-app:latest .
+
+  
+
+Arrêtez et supprimez l'ancien conteneur :
+code Bash
+
+    
+docker stop freelance-driver-service && docker rm freelance-driver-service
+
+  
+
+Relancez le conteneur avec la nouvelle image :
+code Bash
+
+    
+docker run -d \
+  --name freelance-driver-service \
+  -p 8080:8080 \
+  -p 9092:9092 \
+  --env-file .env \
+  --network=freelance_driver_backend_freelance-net \
+  --restart always \
+  freelance-driver-app:latest
+
+  
+
+docker logs -f freelance-driver-service
+
+
+
+sudo ufw allow 8080/tcp
+sudo ufw allow 9092/tcp
+sudo ufw allow out 587/tcp
+sudo ufw reload

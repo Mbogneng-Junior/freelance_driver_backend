@@ -59,6 +59,8 @@ public class WebClientConfig {
      */
     private HttpClient createMediaServiceHttpClient() {
         return HttpClient.create()
+                // --- CORRECTION APPLIQUÉE ICI ---
+                .followRedirect(true) // <-- DIT AU CLIENT DE SUIVRE AUTOMATIQUEMENT LES REDIRECTIONS (COMME 301)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000) // 30 secondes pour la connexion
                 .responseTimeout(Duration.ofSeconds(60)) // 60 secondes pour la réponse complète
                 .doOnConnected(conn -> conn.addHandlerLast(new ReadTimeoutHandler(60, TimeUnit.SECONDS)) // 60s read
