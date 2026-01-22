@@ -129,12 +129,12 @@ code Bash
 docker run -d \
   --name freelance-driver-service \
   -p 8080:8080 \
-  -p 9092:9092 \
+  -p 8081:8081 \
+  -e SERVER_PORT=8081 \
   --env-file .env \
   --network=freelance_driver_backend_freelance-net \
   --restart always \
   freelance-driver-app:latest
-
   
 
 docker logs -f freelance-driver-service
@@ -142,6 +142,7 @@ docker logs -f freelance-driver-service
 
 
 sudo ufw allow 8080/tcp
+sudo ufw allow 8081/tcp
 sudo ufw allow 9092/tcp
 sudo ufw allow out 587/tcp
 sudo ufw reload
